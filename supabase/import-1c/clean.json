@@ -1,0 +1,956 @@
+{
+ "kred": [
+  {
+   "name": "\"Azia Metall Prof\" MCHJ Qk",
+   "debt": 11612288,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№DI-278 от 18.04.2026",
+     "debt": 11612288,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Bigmart\" Mchj",
+   "debt": 0,
+   "adv": 20554,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№DS-0005250",
+     "debt": 0,
+     "adv": 20554,
+     "note": "Bizning avansimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Buxoro Gypsum\" Mchj",
+   "debt": 140434826,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№730 от 01.07.2026",
+     "debt": 54775500,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    },
+    {
+     "raw": "№749 от 01.07.2026",
+     "debt": 43282000,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    },
+    {
+     "raw": "№809 от 01.08.2026",
+     "debt": 42377326,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Durable Metal Pipes\" Mchj",
+   "debt": 51888483.62,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№DP-1472 от 20.08.2026",
+     "debt": 51888483.62,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Iso-Mag\" Mchj",
+   "debt": 4922402.95,
+   "adv": 13424744.88,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№17-М от 02.04.2026",
+     "debt": 0,
+     "adv": 13424735.87,
+     "note": "buni aniqlashtiramiz dushanba kuni"
+    },
+    {
+     "raw": "№5-М от 13.01.2026",
+     "debt": 4922402.95,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    },
+    {
+     "raw": "№9-М от 30.01.2026",
+     "debt": 0,
+     "adv": 9.01,
+     "note": "Bizning avansimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Izo Lyuks \" Mchj",
+   "debt": 12000000,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№203 от 17.09.2025",
+     "debt": 12000000,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Mega Group Design\" Mchj",
+   "debt": 0,
+   "adv": 5000000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№98Т от 14.01.2026",
+     "debt": 0,
+     "adv": 5000000,
+     "note": "internet xizmati uchun yil oxirida schet faktura olamiz"
+    }
+   ]
+  },
+  {
+   "name": "\"Pro-Build Trade\" Mchj",
+   "debt": 0,
+   "adv": 145000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№15/4 от 15.04.2026",
+     "debt": 0,
+     "adv": 145000,
+     "note": "faktura berish kerak"
+    }
+   ]
+  },
+  {
+   "name": "\"Teploizolyatsionnaya  Kompaniya\" Mchj",
+   "debt": 495158655.8,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№2026-40/ЕД от 15.01.2026",
+     "debt": 495158655.8,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Termotech Xps\" Mchj",
+   "debt": 3569028.56,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№105-АЗМ от 02.03.2026",
+     "debt": 3569028.56,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "Rustamobod Fayz MCHJ",
+   "debt": 0,
+   "adv": 23320000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№26 от 05.01.2026",
+     "debt": 0,
+     "adv": 23320000,
+     "note": "Oy oxirida schet faktura beradi"
+    }
+   ]
+  },
+  {
+   "name": "SURKHAN BASALT\" MCHJ",
+   "debt": 0,
+   "adv": 1658880,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№104 от 12.08.2026",
+     "debt": 0,
+     "adv": 1658880,
+     "note": "Bizning avansimiz bor"
+    }
+   ]
+  },
+  {
+   "name": "ООО \"TRAST MUAMALAT\"",
+   "debt": 201474720,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№NМ /26-11 от 25.03.2026",
+     "debt": 201474720,
+     "adv": 0,
+     "note": "Bizning qarizimiz bor"
+    }
+   ]
+  }
+ ],
+ "deb": [
+  {
+   "name": "\"Asaka Motors International\" Mchj",
+   "debt": 0,
+   "adv": 336000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№10/2025 от 14.11.2025",
+     "debt": 0,
+     "adv": 336000,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Aysel Inshaat\" MCHJ Qk",
+   "debt": 0,
+   "adv": 17831777.88,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№12/01 от 12.01.2026",
+     "debt": 0,
+     "adv": 17831777.88,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Bino Va Ko`Prik Barpo Etish\" Mchj",
+   "debt": 0,
+   "adv": 3000000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№199 от 01.07.2026",
+     "debt": 0,
+     "adv": 3000000,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Bo`Stonliq Temir Beton\" Mchj",
+   "debt": 0,
+   "adv": 16860000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№335 от 18.09.2026",
+     "debt": 0,
+     "adv": 1980000,
+     "note": "faktura berishimiz kk"
+    },
+    {
+     "raw": "№342 от 23.09.2026",
+     "debt": 0,
+     "adv": 14880000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "\"Discover Invest\" Mchj",
+   "debt": 396668258.69,
+   "adv": 542882433.24,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№02 от 27.01.2026",
+     "debt": 0,
+     "adv": 122496,
+     "note": ""
+    },
+    {
+     "raw": "№05 от 28.01.2026",
+     "debt": 0,
+     "adv": 17441550,
+     "note": ""
+    },
+    {
+     "raw": "№07/01 от 07.01.2026",
+     "debt": 13391260.69,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№09 от 02.02.2026",
+     "debt": 0,
+     "adv": 240994,
+     "note": ""
+    },
+    {
+     "raw": "№118 от 08.05.2026",
+     "debt": 0,
+     "adv": 25483850,
+     "note": ""
+    },
+    {
+     "raw": "№139 от 25.05.2026",
+     "debt": 0,
+     "adv": 213798400.24,
+     "note": ""
+    },
+    {
+     "raw": "№14/2025 от 02.12.2025",
+     "debt": 29047940,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№141 от 29.05.2026",
+     "debt": 0,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№158 от 09.06.2026",
+     "debt": 0,
+     "adv": 28026570,
+     "note": ""
+    },
+    {
+     "raw": "№16/01 от 16.01.2026",
+     "debt": 0,
+     "adv": 217119288,
+     "note": ""
+    },
+    {
+     "raw": "№165 от 13.06.2026",
+     "debt": 137780970,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№203 от 02.07.2026",
+     "debt": 465,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№265 от 07.08.2026",
+     "debt": 0,
+     "adv": 4732980,
+     "note": ""
+    },
+    {
+     "raw": "№289 от 25.08.2026",
+     "debt": 29594480,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№29 от 20.02.2026",
+     "debt": 15382860,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№304 от 03.09.2026",
+     "debt": 6369050,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№313 от 07.09.2026",
+     "debt": 300,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№321 от 11.09.2026",
+     "debt": 13230000,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№327 от 15.09.2026",
+     "debt": 1470000,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№338 от 21.09.2026",
+     "debt": 32916575,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№36 от 06.03.2026",
+     "debt": 63147590,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№43 от 11.03.2026",
+     "debt": 41295120,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№44 от 11.03.2026",
+     "debt": 0,
+     "adv": 171485,
+     "note": ""
+    },
+    {
+     "raw": "№59 от 30.03.2026",
+     "debt": 13041648,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№62 от 01.04.2026",
+     "debt": 0,
+     "adv": 35744820,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "name": "\"Eight Doors\" Mchj",
+   "debt": 2610000,
+   "adv": 100000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№104 от 30.04.2026",
+     "debt": 0,
+     "adv": 100000,
+     "note": "puli bizada bor"
+    },
+    {
+     "raw": "№112 от 04.05.2026",
+     "debt": 0,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№346 от 24.09.2026",
+     "debt": 2610000,
+     "adv": 0,
+     "note": "qarz"
+    }
+   ]
+  },
+  {
+   "name": "\"Gok-Yapi Insaat\" Mchj",
+   "debt": 10000000,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№333 от 18.09.2026",
+     "debt": 10000000,
+     "adv": 0,
+     "note": "qarz"
+    }
+   ]
+  },
+  {
+   "name": "\"Hi Tech Engineering House\" Mchj",
+   "debt": 0,
+   "adv": 137500,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№169 от 15.06.2026",
+     "debt": 0,
+     "adv": 137500,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Iso-Mag\" Mchj",
+   "debt": 0,
+   "adv": 13268000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№269 от 11.08.2026",
+     "debt": 0,
+     "adv": 13268000,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "name": "\"Kardise\" Mchj",
+   "debt": 0,
+   "adv": 1640442,
+   "note": "puli bizada bor",
+   "contracts": [
+    {
+     "raw": "№320 от 11.09.2026",
+     "debt": 0,
+     "adv": 240000,
+     "note": "puli bizada bor"
+    },
+    {
+     "raw": "№343 от 23.09.2026",
+     "debt": 0,
+     "adv": 1400000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "\"Makon-Kapital-Invest\" Mchj",
+   "debt": 108269401.13,
+   "adv": 4560000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№122 от 12.05.2026",
+     "debt": 0,
+     "adv": 2850000,
+     "note": "puli bizada bor"
+    },
+    {
+     "raw": "№132 от 18.05.2026",
+     "debt": 0,
+     "adv": 1710000,
+     "note": "puli bizada bor"
+    },
+    {
+     "raw": "№187 от 23.06.2026",
+     "debt": 300,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№275 от 17.08.2026",
+     "debt": 60277580.33,
+     "adv": 0,
+     "note": "qarz"
+    },
+    {
+     "raw": "№276 от 17.08.2026",
+     "debt": 27491520.8,
+     "adv": 0,
+     "note": "qarz"
+    },
+    {
+     "raw": "№277 от 17.08.2026",
+     "debt": 20500000,
+     "adv": 0,
+     "note": "qarz"
+    }
+   ]
+  },
+  {
+   "name": "\"Neotemp\" Mchj",
+   "debt": 673920,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№33 от 02.03.2026",
+     "debt": 673920,
+     "adv": 0,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "name": "\"New Times Buildings\" Mchj",
+   "debt": 0,
+   "adv": 4080720,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№217 от 13.07.2026",
+     "debt": 0,
+     "adv": 4080720,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"NIHOL QURILISH\" MAS'ULIYATI CHEKLANGAN JAMIYAT",
+   "debt": 9810260,
+   "adv": 0,
+   "note": "qarz",
+   "contracts": [
+    {
+     "raw": "№309 от 07.09.2026",
+     "debt": 9810260,
+     "adv": 0,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "name": "\"Oqoltin Bobur Tomorqa Xizmati Uch\" Mchj",
+   "debt": 0,
+   "adv": 10825800,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№88 от 15.04.2026",
+     "debt": 0,
+     "adv": 10825800,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Oxus Project Managment\" Mchj",
+   "debt": 0,
+   "adv": 750000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№334 от 18.09.2026",
+     "debt": 0,
+     "adv": 750000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "\"Qurilish Universal Kompakt Servis\" Mchj",
+   "debt": 0,
+   "adv": 4163520,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№186 от 23.06.2026",
+     "debt": 0,
+     "adv": 120000,
+     "note": ""
+    },
+    {
+     "raw": "№252 от 30.07.2026",
+     "debt": 0,
+     "adv": 4043520,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"Ravshan 001\" Mchj",
+   "debt": 864000,
+   "adv": 11507800.4,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№128 от 15.05.2026",
+     "debt": 54000,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№193 от 26.06.2026",
+     "debt": 0,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№317 от 09.09.2026",
+     "debt": 810000,
+     "adv": 0,
+     "note": ""
+    },
+    {
+     "raw": "№57 от 26.03.2026",
+     "debt": 0,
+     "adv": 11405800.4,
+     "note": "faktura berishimiz kk"
+    },
+    {
+     "raw": "№64 от 03.04.2026",
+     "debt": 0,
+     "adv": 102000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "\"Technogreen\" Mchj",
+   "debt": 0,
+   "adv": 1505980,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№315 от 08.09.2026",
+     "debt": 0,
+     "adv": 1505980,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "\"TOSHKENT VILOYATI YO`LLARDAN MUNTAZAM FOYDALANISH\" DM",
+   "debt": 3516705,
+   "adv": 0,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№В26012175 от 13.08.2026",
+     "debt": 3516705,
+     "adv": 0,
+     "note": "qarz"
+    }
+   ]
+  },
+  {
+   "name": "\"Zufar Building Group\" Mchj",
+   "debt": 0,
+   "adv": 3965000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№344 от 23.09.2026",
+     "debt": 0,
+     "adv": 3965000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "MCHJ \"SEAFOOD IMPORT TRADE\"",
+   "debt": 0,
+   "adv": 65958000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№348 от 25.09.2026",
+     "debt": 0,
+     "adv": 65958000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "OOO \"URBANIX BUILDER\"",
+   "debt": 0,
+   "adv": 15365160,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№345 от 24.09.2026",
+     "debt": 0,
+     "adv": 15365160,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  },
+  {
+   "name": "ООО \"ALL TEEM STROY\"",
+   "debt": 0,
+   "adv": 1378080,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№297 от 28.08.2026",
+     "debt": 0,
+     "adv": 1378080,
+     "note": "puli bizada bor"
+    }
+   ]
+  },
+  {
+   "name": "ООО \"EURASIA BOTTLERS\"",
+   "debt": 0,
+   "adv": 720000,
+   "note": "",
+   "contracts": [
+    {
+     "raw": "№329 от 16.09.2026",
+     "debt": 0,
+     "adv": 720000,
+     "note": "faktura berishimiz kk"
+    }
+   ]
+  }
+ ],
+ "sklad": [
+  {
+   "raw": "1. A-PAY P10 (Android POS TERMINAL P10)",
+   "unit": "шт",
+   "qty": 1,
+   "sum": 2589285.71
+  },
+  {
+   "raw": "2. ISOCOM ППИ-ЖС 50 (Жугут)",
+   "unit": "м",
+   "qty": 10,
+   "sum": 50978.57
+  },
+  {
+   "raw": "4. PENOPLEX FASTFIX STANDARD, 700гр",
+   "unit": "шт",
+   "qty": 13,
+   "sum": 668571.43
+  },
+  {
+   "raw": "5. Базальтовая-минеральная вата, плотность-100кг/м3, 1200х600х50 мм",
+   "unit": "м3",
+   "qty": 17.064,
+   "sum": 11426785.72
+  },
+  {
+   "raw": "6. Базальтовая-минеральная вата, плотность-100кг/м3, 1200х600х70 мм",
+   "unit": "м3",
+   "qty": 1.005,
+   "sum": 672991.07
+  },
+  {
+   "raw": "7. Базальтовая-минеральная вата, плотность-120кг/м3, 1200х600х50 мм",
+   "unit": "м3",
+   "qty": 15.768,
+   "sum": 13599900
+  },
+  {
+   "raw": "8. Битумная мастика Универсальная",
+   "unit": "кг",
+   "qty": 800,
+   "sum": 8571428.57
+  },
+  {
+   "raw": "9. Битумный праймер Marja",
+   "unit": "кг",
+   "qty": 288,
+   "sum": 3497142.86
+  },
+  {
+   "raw": "10. Гипсокартон 12,5 цвет белый",
+   "unit": "м2",
+   "qty": 1374,
+   "sum": 16561607.15
+  },
+  {
+   "raw": "11. Гипсокартон 12,5 цвет зеленый",
+   "unit": "м2",
+   "qty": 153,
+   "sum": 2413392.86
+  },
+  {
+   "raw": "12. гипсокартон 9,5 цвет белый",
+   "unit": "м2",
+   "qty": 3082,
+   "sum": 34855952.38
+  },
+  {
+   "raw": "13. Гипсокартон 9,5 цвет зеленый",
+   "unit": "м2",
+   "qty": 1608,
+   "sum": 22732142.86
+  },
+  {
+   "raw": "14. Дюбель для теплоизоляции LEWOD PREMIUM 10x260 с металлическим гвоздем с термоголовой",
+   "unit": "шт",
+   "qty": 250,
+   "sum": 535714.29
+  },
+  {
+   "raw": "16. Клей усиленный",
+   "unit": "кг",
+   "qty": 600,
+   "sum": 18482142.86
+  },
+  {
+   "raw": "17. Клей-пена в аэрозольной упаковке PENOPLEX FASTFIX",
+   "unit": "шт",
+   "qty": 10,
+   "sum": 500000
+  },
+  {
+   "raw": "18. негазированная вода",
+   "unit": "шт",
+   "qty": 5,
+   "sum": 98214.29
+  },
+  {
+   "raw": "19. Пластер штукатурка",
+   "unit": "кг",
+   "qty": 1000,
+   "sum": 29464285.71
+  },
+  {
+   "raw": "20. Плиты \"ТЕПЛЕКС\" 20х585х1185 С (0,278)",
+   "unit": "м3",
+   "qty": 28.659,
+   "sum": 13561848.21
+  },
+  {
+   "raw": "21. Плиты \"ТЕПЛЕКС\"30х585х1185 Т-15",
+   "unit": "м3",
+   "qty": 58.6424,
+   "sum": 27750421.43
+  },
+  {
+   "raw": "22. Плиты \"ТЕПЛЕКС\"50х585х1185 Т-15",
+   "unit": "м3",
+   "qty": 62.479,
+   "sum": 28998362.51
+  },
+  {
+   "raw": "23. Плиты «ПЕНОПЛЭКС ОСНОВА» 20х585х1185 Т-15",
+   "unit": "м3",
+   "qty": 13.6639,
+   "sum": 8051941.07
+  },
+  {
+   "raw": "24. Плиты «ПЕНОПЛЭКС ОСНОВА» 30х585х1185 Т-15",
+   "unit": "м3",
+   "qty": 14.6996,
+   "sum": 8662264.28
+  },
+  {
+   "raw": "25. Плиты «ПЕНОПЛЭКС ОСНОВА» 50х585х1185 Т-15",
+   "unit": "м3",
+   "qty": 29.1578,
+   "sum": 17182274.99
+  },
+  {
+   "raw": "26. Плиты пенополистирольные ППС 10-Р-А",
+   "unit": "м3",
+   "qty": 41.76,
+   "sum": 13050000
+  },
+  {
+   "raw": "28. Фиксатор звездочка для арматуры 40 мм",
+   "unit": "шт",
+   "qty": 15000,
+   "sum": 4504560
+  }
+ ],
+ "naxt": [
+  {
+   "name": "Нахт",
+   "amount": 12224800
+  },
+  {
+   "name": "Карта",
+   "amount": 5993779
+  },
+  {
+   "name": "Низомиддинда пул",
+   "amount": 1709700
+  }
+ ]
+}
