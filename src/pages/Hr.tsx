@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { invokeFn, translateDbError } from '../lib/useRefs'
+import EmployeeCard from '../components/EmployeeCard'
 import type { Attendance, ManagerKpi, Payroll, Profile, Role } from '../lib/types'
 import {
   Badge, Button, Card, CardTitle, Empty, ErrorBox, Field, InfoBox, Input, Loading,
@@ -25,6 +26,9 @@ const ROLE_LABEL: Record<Role, string> = {
 export default function Hr() {
   const { isOwner, profile } = useAuth()
   const [tab, setTab] = useState<Tab>('staff')
+  const [openId, setOpenId] = useState<string | null>(null)
+
+  if (openId) return <EmployeeCard id={openId} onBack={() => setOpenId(null)} />
 
   const TABS = ([
     { key: 'staff',      label: 'Xodimlar' },
@@ -58,7 +62,7 @@ export default function Hr() {
         ))}
       </div>
 
-      {tab === 'staff'      && <StaffTab isOwner={isOwner} meId={profile!.id} />}
+      {tab === 'staff'      && <StaffTab isOwner={isOwner} meId={profile!.id} onOpen={setOpenId} />}
       {tab === 'kpi'        && <KpiTab />}
       {tab === 'attendance' && <AttendanceTab isOwner={isOwner} meId={profile!.id} />}
       {tab === 'leaves'     && <LeavesTab isOwner={isOwner} meId={profile!.id} />}
@@ -71,7 +75,7 @@ export default function Hr() {
 /*  XODIMLAR                                                         */
 /* ================================================================ */
 
-function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
+function StaffTab({ isOwner, meId, onOpen }: { isOwner: boolean; meId: string; onOpen: (id: string) => void }) {
   const { n } = useSettings()
   const [rows, setRows] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -171,7 +175,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
             </thead>
             <tbody>
               {rows.map((p) => (
-                <Tr key={p.id}>
+                <Tr key={p.id} onClick={() => onOpen(p.id)}>
                   <Td>
                     <div className="flex items-center gap-2.5">
                       <div
@@ -186,7 +190,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
                       </div>
                     </div>
                   </Td>
-                  <Td>
+                  <Td stopClick>
                     {isOwner && p.id !== meId ? (
                       <Select
                         value={p.role}
@@ -196,7 +200,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
                     ) : <Badge tone={p.role === 'owner' ? 'brand' : 'neutral'}>{ROLE_LABEL[p.role]}</Badge>}
                   </Td>
                   {isOwner && (
-                    <Td align="right">
+                    <Td align="right" stopClick>
                       <Input
                         type="number" className="text-right tnum" value={p.salary}
                         onChange={(v) => updateField(p.id, { salary: Number(v) || 0 })}
@@ -204,7 +208,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
                     </Td>
                   )}
                   {isOwner && (
-                    <Td align="right">
+                    <Td align="right" stopClick>
                       <Input
                         type="number" className="text-right tnum"
                         value={p.bonus_pct ?? ''}
@@ -212,7 +216,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
                       />
                     </Td>
                   )}
-                  <Td align="center">
+                  <Td align="center" stopClick>
                     {p.tg_chat_id
                       ? <Badge tone="ok"><Check size={11} />ulangan</Badge>
                       : p.id === meId
@@ -223,7 +227,7 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
                     <Badge tone={p.is_active ? 'ok' : 'neutral'}>{p.is_active ? 'faol' : 'faolsiz'}</Badge>
                   </Td>
                   {isOwner && (
-                    <Td align="right">
+                    <Td align="right" stopClick>
                       <span className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" title="Parolni almashtirish" onClick={() => setResetFor(p)}>
                           <KeyRound size={14} />

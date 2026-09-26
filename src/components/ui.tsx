@@ -255,15 +255,18 @@ export function Th({
 }
 
 export function Td({
-  children, align = 'left', className = '', mono, colSpan, title,
+  children, align = 'left', className = '', mono, colSpan, title, stopClick,
 }: {
   children?: ReactNode; align?: 'left' | 'right' | 'center'
   className?: string; mono?: boolean; colSpan?: number; title?: string
+  /** Qatorning onClick'i ishlamasin — ichida tugma yoki input bo'lsa */
+  stopClick?: boolean
 }) {
   return (
     <td
       colSpan={colSpan}
       title={title}
+      onClick={stopClick ? (e) => e.stopPropagation() : undefined}
       style={{ borderColor: 'var(--border)' }}
       className={`border-b px-2 py-2 text-${align} ${mono ? 'tnum' : ''} ${className}`}
     >

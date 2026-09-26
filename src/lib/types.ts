@@ -20,6 +20,18 @@ export interface Profile {
   avatar_url: string | null
   note: string | null
   role_id: number | null
+  birth_date: string | null
+  passport: string | null
+  pinfl: string | null
+  address: string | null
+  emergency_name: string | null
+  emergency_phone: string | null
+  position: string | null
+  employment_type: string | null
+  probation_until: string | null
+  contract_until: string | null
+  terminated_at: string | null
+  termination_reason: string | null
 }
 
 export type SettingType =
@@ -383,6 +395,8 @@ export interface Payroll {
   bonus_base: number
   bonus_pct: number | null
   bonus_amount: number
+  extra_bonus: number
+  advance_repaid: number
   deductions: number
   penalties: number
   tax_amount: number
@@ -685,4 +699,89 @@ export interface CashByCategory {
   flow_kind: string
   op_count: number
   amount_base: number
+}
+
+export type EmpEventType =
+  | 'hire' | 'rehire' | 'terminate' | 'position' | 'salary' | 'role' | 'note'
+
+export interface EmploymentEvent {
+  id: number
+  profile_id: string
+  event_type: EmpEventType
+  effective_date: string
+  order_no: string | null
+  order_date: string | null
+  position: string | null
+  employment_type: string | null
+  probation_until: string | null
+  contract_until: string | null
+  salary_from: number | null
+  salary_to: number | null
+  bonus_pct_from: number | null
+  bonus_pct_to: number | null
+  role_id_from: number | null
+  role_id_to: number | null
+  reason: string | null
+  note: string | null
+  is_applied: boolean
+  created_at: string
+}
+
+export interface StaffAdvance {
+  id: number
+  profile_id: string
+  issue_date: string
+  amount: number
+  repay_monthly: number
+  reason: string | null
+  status: 'open' | 'closed'
+  repaid: number
+  balance: number
+}
+
+export interface StaffAdjustment {
+  id: number
+  profile_id: string
+  period_month: string
+  kind: 'penalty' | 'bonus'
+  amount: number
+  reason: string
+  created_at: string
+}
+
+export interface HandoverItem {
+  id: number
+  profile_id: string
+  item_type: string
+  entity_id: string | null
+  description: string
+  amount_base: number | null
+  to_profile_id: string | null
+  is_done: boolean
+  note: string | null
+}
+
+export interface HrReminder {
+  profile_id: string
+  full_name: string
+  kind: 'birthday' | 'anniversary' | 'probation' | 'contract'
+  label: string
+  event_date: string
+  days_left: number
+}
+
+export interface FinalSettlement {
+  worked_days: number
+  work_days: number
+  salary_full: number
+  salary_part: number
+  leave_quota: number
+  leave_used: number
+  leave_days_left: number
+  leave_comp: number
+  bonus: number
+  extra_bonus: number
+  penalty: number
+  advance_due: number
+  total: number
 }
