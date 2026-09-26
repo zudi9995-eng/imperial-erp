@@ -3,6 +3,7 @@ import {
   Search, Plus, Users, UserCheck, Phone, ArrowLeft, Pencil, MessageSquarePlus,
   FileText, ShoppingCart, Wallet, TrendingUp, Clock, AlertTriangle,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useRefs, translateDbError } from '../lib/useRefs'
@@ -354,6 +355,12 @@ function CustomerCard({ id, onBack }: { id: number; onBack: () => void }) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Link to={`/sales?customer=${id}`}>
+            <Button size="sm" variant="primary"><ShoppingCart size={14} />Sotuv kiritish</Button>
+          </Link>
+          <Link to="/receivables">
+            <Button size="sm"><Wallet size={14} />Debitor</Button>
+          </Link>
           <Button size="sm" onClick={() => setNoteOpen(true)}><MessageSquarePlus size={14} />Aloqa</Button>
           {isOwner && <Button size="sm" onClick={() => setEditing(true)}><Pencil size={14} />Tahrirlash</Button>}
         </div>
@@ -653,6 +660,8 @@ function CustomerModal({
       email: d.email?.trim() || null,
       address: d.address?.trim() || null,
       credit_limit: d.credit_limit ?? null,
+      opening_debt: d.opening_debt ?? 0,
+      opening_advance: d.opening_advance ?? 0,
       note: d.note?.trim() || null,
       is_active: d.is_active ?? true,
     }
@@ -720,6 +729,29 @@ function CustomerModal({
           </Field>
         </div>
         <Field label="Manzil"><Input value={d.address ?? ''} onChange={(v) => set('address', v)} /></Field>
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-2)' }}>
+          <div className="mb-2 text-[13px] font-medium">Boshlang'ich qoldiq</div>
+          <p className="mb-2 text-[12px]" style={{ color: 'var(--text-3)' }}>
+            1C dan kelgan qarz allaqachon hujjatlarga aylantirilgan. Bu yerda faqat
+            hujjatlashtirilmagan qoldiqni to'g'rilaysiz.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Qarzi" hint="Bizga qarzdor">
+              <Input
+                type="number" className="text-right tnum"
+                value={d.opening_debt ?? 0}
+                onChange={(v) => set('opening_debt', Number(v) || 0)}
+              />
+            </Field>
+            <Field label="Avansi" hint="Biz qarzdormiz">
+              <Input
+                type="number" className="text-right tnum"
+                value={d.opening_advance ?? 0}
+                onChange={(v) => set('opening_advance', Number(v) || 0)}
+              />
+            </Field>
+          </div>
+        </div>
         <Field label="Izoh"><Textarea value={d.note ?? ''} onChange={(v) => set('note', v)} rows={2} /></Field>
         <Toggle checked={d.is_active ?? true} onChange={(v) => set('is_active', v)} label="Faol" />
         {err && <ErrorBox>{err}</ErrorBox>}

@@ -15,14 +15,16 @@ import {
   Modal, PageHeader, Progress, Select, Stat, Table, Td, Textarea, Th, Tr,
 } from '../components/ui'
 import { dateShort, isoDate, money, moneyShort, monthLabel, num, pct } from '../lib/format'
+import CashJournal from '../components/CashJournal'
 
-type Tab = 'position' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans' | 'scenario'
+type Tab = 'position' | 'journal' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans' | 'scenario'
 
 export default function Finance() {
   const [tab, setTab] = useState<Tab>('position')
 
   const TABS = ([
     { key: 'position', label: 'Pozitsiya' },
+    { key: 'journal',  label: 'Kassa jurnali' },
     { key: 'pnl',      label: 'Foyda va zarar' },
     { key: 'cash',     label: 'Naqd oqim' },
     { key: 'plan',     label: 'Reja va byudjet' },
@@ -52,6 +54,7 @@ export default function Finance() {
       </div>
 
       {tab === 'position' && <PositionTab />}
+      {tab === 'journal'  && <CashJournal />}
       {tab === 'pnl'      && <PnlTab />}
       {tab === 'cash'     && <CashTab />}
       {tab === 'plan'     && <PlanTab />}
@@ -415,9 +418,9 @@ function CashTab() {
                 <tr>
                   <Th w={110}>Oy</Th>
                   <Th w={140} align="right">Kirim</Th>
-                  <Th w={140} align="right">Postavshikka</Th>
-                  <Th w={140} align="right">Harajat</Th>
-                  <Th w={140} align="right">Qarz to'lovi</Th>
+                  <Th w={140} align="right">Chiqim</Th>
+                  <Th w={150} align="right">Operatsion sof</Th>
+                  <Th w={150} align="right">Moliyaviy sof</Th>
                   <Th w={150} align="right">Sof oqim</Th>
                 </tr>
               </thead>
@@ -428,9 +431,15 @@ function CashTab() {
                     <Td align="right" mono>
                       <span style={{ color: 'var(--ok)' }}>{money(r.inflow_base, false)}</span>
                     </Td>
-                    <Td align="right" mono>{money(r.outflow_partner_base, false)}</Td>
-                    <Td align="right" mono>{money(r.outflow_expense_base, false)}</Td>
-                    <Td align="right" mono>{money(r.outflow_loan_base, false)}</Td>
+                    <Td align="right" mono>
+                      <span style={{ color: 'var(--danger)' }}>{money(r.outflow_base, false)}</span>
+                    </Td>
+                    <Td align="right" mono>
+                      {money(Number(r.inflow_operating) - Number(r.outflow_operating), false)}
+                    </Td>
+                    <Td align="right" mono>
+                      {money(Number(r.inflow_financing) - Number(r.outflow_financing), false)}
+                    </Td>
                     <Td align="right" mono className="font-semibold">
                       <span style={{ color: Number(r.net_flow_base) >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
                         {money(r.net_flow_base, false)}

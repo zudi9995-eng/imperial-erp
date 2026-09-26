@@ -460,10 +460,11 @@ export interface Position {
 export interface CashFlowRow {
   period: string
   inflow_base: number
-  outflow_partner_base: number
-  outflow_expense_base: number
-  outflow_loan_base: number
   outflow_base: number
+  inflow_operating: number
+  outflow_operating: number
+  inflow_financing: number
+  outflow_financing: number
   net_flow_base: number
 }
 
@@ -582,4 +583,105 @@ export interface Contract {
   kind: string
   note: string | null
   is_active: boolean
+}
+
+export interface CashCategory {
+  id: number
+  name: string
+  direction: 1 | -1
+  flow_kind: 'operating' | 'investing' | 'financing'
+  code: string | null
+  is_system: boolean
+  is_active: boolean
+  sort_order: number
+}
+
+export interface CashLedgerRow {
+  source: 'payment' | 'expense' | 'loan' | 'op'
+  source_id: number
+  op_date: string
+  direction: 1 | -1
+  category_name: string
+  flow_kind: string
+  cash_account_id: number
+  to_account_id: number | null
+  amount_base: number
+  counterparty: string | null
+  doc_no: string | null
+  description: string | null
+  created_at: string
+}
+
+export interface CashBalance {
+  cash_account_id: number
+  name: string
+  kind: string
+  currency: string
+  balance_base: number
+  opening_base: number
+}
+
+export interface FxCurrent {
+  currency: string
+  currency_name: string
+  symbol: string | null
+  rate: number
+  rate_date: string
+  source: string
+  days_old: number
+  last_sync_at: string | null
+}
+
+export interface TopProduct {
+  product_id: number
+  code: string | null
+  name: string
+  category_name: string | null
+  unit_code: string | null
+  qty_sold: number
+  revenue_base: number
+  gross_profit_base: number
+  margin_pct: number | null
+  customer_count: number
+  sale_count: number
+  last_sold_at: string | null
+  stock_qty: number
+}
+
+export interface TopCustomer {
+  customer_id: number
+  name: string
+  manager_id: string | null
+  tier_id: number | null
+  phone: string | null
+  sale_count: number
+  revenue_base: number
+  gross_profit_base: number
+  margin_pct: number | null
+  collection_pct: number | null
+  last_sale_at: string | null
+  days_since_sale: number | null
+  avg_check_base: number
+}
+
+export interface CrossSellRow {
+  customer_id: number
+  customer_name: string
+  manager_id: string | null
+  product_id: number
+  product_name: string
+  product_code: string | null
+  category_name: string | null
+  other_buyers: number
+  stock_qty: number
+  margin_pct: number | null
+}
+
+export interface CashByCategory {
+  period: string
+  direction: 1 | -1
+  category_name: string
+  flow_kind: string
+  op_count: number
+  amount_base: number
 }

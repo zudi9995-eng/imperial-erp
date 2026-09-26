@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Badge, Button } from './ui'
 import { initials } from '../lib/format'
+import MoneyBar from './MoneyBar'
 
 interface NavItem {
   to: string
@@ -191,6 +192,8 @@ export default function Layout() {
             </span>
           )}
         </header>
+
+        <MoneyBar />
 
         <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1400px]">

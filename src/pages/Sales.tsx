@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Trash2, Search, AlertTriangle, CheckCircle2, Clock, Ban, Send,
 } from 'lucide-react'
@@ -34,6 +35,8 @@ export default function Sales() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [creating, setCreating] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const presetCustomer = params.get('customer')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -54,6 +57,11 @@ export default function Sales() {
   }, [from, to, status])
 
   useEffect(() => { void load() }, [load])
+
+  // Mijoz kartochkasidan kelingan bo'lsa sotuv oynasini ochamiz
+  useEffect(() => {
+    if (presetCustomer) setCreating(true)
+  }, [presetCustomer])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -195,8 +203,9 @@ export default function Sales() {
       {creating && (
         <NewSale
           profileId={profile!.id}
-          onClose={() => setCreating(false)}
-          onDone={() => { setCreating(false); void load() }}
+          presetCustomerId={presetCustomer ? Number(presetCustomer) : null}
+          onClose={() => { setCreating(false); if (presetCustomer) setParams({}, { replace: true }) }}
+          onDone={() => { setCreating(false); if (presetCustomer) setParams({}, { replace: true }); void load() }}
         />
       )}
     </div>
@@ -216,14 +225,19 @@ function StatusBadge({ sale }: { sale: Sale }) {
 /* ================================================================ */
 
 function NewSale({
-  profileId, onClose, onDone,
-}: { profileId: string; onClose: () => void; onDone: () => void }) {
+  profileId, presetCustomerId, onClose, onDone,
+}: {
+  profileId: string
+  presetCustomerId?: number | null
+  onClose: () => void
+  onDone: () => void
+}) {
   const refs = useRefs()
   const { customers, loading: custLoading } = useCustomers()
   const { products, loading: prodLoading } = useProducts()
   const { n } = useSettings()
 
-  const [customerId, setCustomerId] = useState<number | null>(null)
+  const [customerId, setCustomerId] = useState<number | null>(presetCustomerId ?? null)
   const [warehouseId, setWarehouseId] = useState<number | null>(null)
   const [termId, setTermId] = useState<number | null>(null)
   const [docDate, setDocDate] = useState(isoDate())

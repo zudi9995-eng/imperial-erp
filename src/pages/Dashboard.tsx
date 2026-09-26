@@ -13,6 +13,7 @@ import {
   Progress, Stat, Table, Td, Th, Tr,
 } from '../components/ui'
 import { dateUz, money, moneyShort, num, pct } from '../lib/format'
+import Analytics from '../components/Analytics'
 
 interface MyMonth { revenue: number; plan: number; margin: number | null; overdue: number }
 
@@ -358,6 +359,10 @@ export default function Dashboard() {
             </Table>
           )}
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <Analytics />
       </div>
 
       <p className="mt-4 text-[12px]" style={{ color: 'var(--text-3)' }}>

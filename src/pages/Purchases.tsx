@@ -661,6 +661,8 @@ function SupplierModal({
       contact_person: d.contact_person?.trim() || null,
       payment_term_id: d.payment_term_id ?? null,
       currency: d.currency ?? 'UZS',
+      opening_debt: d.opening_debt ?? 0,
+      opening_advance: d.opening_advance ?? 0,
       note: d.note?.trim() || null,
       is_active: d.is_active ?? true,
     }
@@ -709,6 +711,25 @@ function SupplierModal({
               options={[{ value: 'UZS', label: "so'm" }, { value: 'USD', label: 'USD' }]}
             />
           </Field>
+        </div>
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-2)' }}>
+          <div className="mb-2 text-[13px] font-medium">Boshlang'ich qoldiq</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Qarzimiz" hint="Biz to'lashimiz kerak">
+              <Input
+                type="number" className="text-right tnum"
+                value={d.opening_debt ?? 0}
+                onChange={(v) => set('opening_debt', Number(v) || 0)}
+              />
+            </Field>
+            <Field label="Avansimiz" hint="Pul berdik, tovar kelmagan">
+              <Input
+                type="number" className="text-right tnum"
+                value={d.opening_advance ?? 0}
+                onChange={(v) => set('opening_advance', Number(v) || 0)}
+              />
+            </Field>
+          </div>
         </div>
         <Field label="Izoh"><Textarea value={d.note ?? ''} onChange={(v) => set('note', v)} rows={2} /></Field>
         <Toggle checked={d.is_active ?? true} onChange={(v) => set('is_active', v)} label="Faol" />
