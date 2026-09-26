@@ -6,6 +6,8 @@ interface Refs {
   warehouses: { id: number; name: string }[]
 }
 
+type DocKind = 'waybill' | 'invoice'
+
 const esc = (s: unknown) =>
   String(s ?? '').replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))
@@ -38,40 +40,12 @@ function amountInWords(n: number): string {
   return parts.join(' ')
 }
 
-/**
- * Sotuvdan chop etishga tayyor hujjat ochadi.
- * Yangi oynada ochiladi, brauzerning chop etish oynasi chaqiriladi.
- */
-export function printSaleDoc(
-  s: SaleBoardRow,
-  items: SaleItemRow[],
-  refs: Refs,
-  kind: 'waybill' | 'invoice',
-) {
-  const unit = (uid: number | null | undefined) =>
-    refs.units.find((u) => u.id === uid)?.code ?? ''
-  const wh = refs.warehouses.find((w) => w.id === s.warehouse_id)?.name ?? ''
-
-  const title = kind === 'waybill' ? 'YUK XATI' : 'HISOB-FAKTURA'
-  const total = Number(s.net_base)
-
-  const rows = items.map((i, n) => `
-    <tr>
-      <td class="c">${n + 1}</td>
-      <td>${esc(i.product?.name ?? '')}${i.product?.code ? `<br><span class="mut">${esc(i.product.code)}</span>` : ''}</td>
-      <td class="c">${esc(unit(i.product?.unit_id))}</td>
-      <td class="r">${num(kind === 'waybill' ? i.qty_shipped || i.qty : i.qty, 2)}</td>
-      <td class="r">${money(i.price, false)}</td>
-      <td class="r">${money(i.line_total, false)}</td>
-    </tr>`).join('')
-
-  const html = `<!doctype html>
-<html lang="uz"><head><meta charset="utf-8">
-<title>${title} ${esc(s.doc_no ?? s.id)}</title>
-<style>
+const STYLE = `
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body { font: 12px/1.45 'Segoe UI', Arial, sans-serif; color: #111; margin: 0; }
+  .doc { page-break-after: always; }
+  .doc:last-child { page-break-after: auto; }
   h1 { font-size: 17px; margin: 0 0 2px; letter-spacing: .3px; }
   .sub { color: #666; font-size: 11px; margin-bottom: 14px; }
   .head { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
@@ -98,73 +72,100 @@ export function printSaleDoc(
   .noprint { margin-bottom: 12px; }
   .btn { font: inherit; padding: 7px 14px; border: 1px solid #1f4f8f; background: #1f4f8f;
          color: #fff; border-radius: 5px; cursor: pointer; }
-</style></head>
+`
+
+/** Bitta hujjatning tanasi — bir nechtasi bitta sahifaga yig'ilishi mumkin */
+function buildDocBody(
+  s: SaleBoardRow, items: SaleItemRow[], refs: Refs, kind: DocKind,
+): string {
+  const unit = (uid: number | null | undefined) =>
+    refs.units.find((u) => u.id === uid)?.code ?? ''
+  const wh = refs.warehouses.find((w) => w.id === s.warehouse_id)?.name ?? ''
+  const title = kind === 'waybill' ? 'YUK XATI' : 'HISOB-FAKTURA'
+  const total = Number(s.net_base)
+
+  const rows = items.map((i, n) => `
+    <tr>
+      <td class="c">${n + 1}</td>
+      <td>${esc(i.product?.name ?? '')}${i.product?.code ? `<br><span class="mut">${esc(i.product.code)}</span>` : ''}</td>
+      <td class="c">${esc(unit(i.product?.unit_id))}</td>
+      <td class="r">${num(kind === 'waybill' ? Number(i.qty_shipped) || Number(i.qty) : Number(i.qty), 2)}</td>
+      <td class="r">${money(i.price, false)}</td>
+      <td class="r">${money(i.line_total, false)}</td>
+    </tr>`).join('')
+
+  return `
+  <div class="doc">
+    <h1>${title} № ${esc(s.doc_no ?? s.id)}</h1>
+    <div class="sub">Sana: ${dateShort(s.doc_date)}${s.due_date ? ` · To'lov muddati: ${dateShort(s.due_date)}` : ''}</div>
+
+    <div class="head">
+      <div class="box">
+        <b>Yetkazib beruvchi</b>
+        Imperial Partners MChJ<br>
+        Ombor: ${esc(wh)}
+        ${s.manager_name ? `<br>Menejer: ${esc(s.manager_name)}` : ''}
+      </div>
+      <div class="box">
+        <b>Xaridor</b>
+        ${esc(s.customer_name)}
+        ${s.phone ? `<br>Tel: ${esc(s.phone)}` : ''}
+        ${s.delivery_address ? `<br>Manzil: ${esc(s.delivery_address)}` : ''}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px">№</th>
+          <th>Nomenklatura</th>
+          <th style="width:52px">Birlik</th>
+          <th style="width:80px" class="r">Miqdor</th>
+          <th style="width:100px" class="r">Narx</th>
+          <th style="width:115px" class="r">Summa</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="tot"><table>
+      ${Number(s.returned_base) > 0 ? `
+      <tr><td>Sotuv summasi</td><td class="v">${money(s.total_base, false)}</td></tr>
+      <tr><td>Qaytarilgan</td><td class="v">−${money(s.returned_base, false)}</td></tr>` : ''}
+      <tr><td><b>Jami</b></td><td class="v">${money(total)}</td></tr>
+      ${Number(s.paid_base) > 0 ? `
+      <tr><td>To'langan</td><td class="v">${money(s.paid_base, false)}</td></tr>
+      <tr><td><b>Qarz</b></td><td class="v">${money(s.due_base, false)}</td></tr>` : ''}
+    </table></div>
+
+    <div class="words">Summa so'z bilan: <b>${amountInWords(total)} so'm</b></div>
+
+    ${kind === 'waybill' && (s.delivery_driver || s.delivery_vehicle) ? `
+    <div class="note">
+      ${s.delivery_driver ? `Haydovchi: ${esc(s.delivery_driver)}` : ''}
+      ${s.delivery_vehicle ? ` · Mashina: ${esc(s.delivery_vehicle)}` : ''}
+    </div>` : ''}
+
+    <div class="sign">
+      <div><div class="line"></div>Topshirdi (F.I.Sh., imzo)</div>
+      <div><div class="line"></div>Qabul qildi (F.I.Sh., imzo)</div>
+    </div>
+
+    <div class="note">
+      Bu hujjat Imperial Partners boshqaruv platformasidan chiqarildi.
+      Rasmiy schyot-faktura buxgalteriya orqali rasmiylashtiriladi.
+    </div>
+  </div>`
+}
+
+function openPrintWindow(title: string, body: string) {
+  const html = `<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>${STYLE}</style></head>
 <body>
-  <div class="noprint">
-    <button class="btn" onclick="window.print()">Chop etish</button>
-  </div>
-
-  <h1>${title} № ${esc(s.doc_no ?? s.id)}</h1>
-  <div class="sub">Sana: ${dateShort(s.doc_date)}${s.due_date ? ` · To'lov muddati: ${dateShort(s.due_date)}` : ''}</div>
-
-  <div class="head">
-    <div class="box">
-      <b>Yetkazib beruvchi</b>
-      Imperial Partners MChJ<br>
-      Ombor: ${esc(wh)}
-      ${s.manager_name ? `<br>Menejer: ${esc(s.manager_name)}` : ''}
-    </div>
-    <div class="box">
-      <b>Xaridor</b>
-      ${esc(s.customer_name)}
-      ${s.phone ? `<br>Tel: ${esc(s.phone)}` : ''}
-      ${s.delivery_address ? `<br>Manzil: ${esc(s.delivery_address)}` : ''}
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="width:32px">№</th>
-        <th>Nomenklatura</th>
-        <th style="width:52px">Birlik</th>
-        <th style="width:80px" class="r">Miqdor</th>
-        <th style="width:100px" class="r">Narx</th>
-        <th style="width:115px" class="r">Summa</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-
-  <div class="tot"><table>
-    ${Number(s.returned_base) > 0 ? `
-    <tr><td>Sotuv summasi</td><td class="v">${money(s.total_base, false)}</td></tr>
-    <tr><td>Qaytarilgan</td><td class="v">−${money(s.returned_base, false)}</td></tr>` : ''}
-    <tr><td><b>Jami</b></td><td class="v">${money(total)}</td></tr>
-    ${Number(s.paid_base) > 0 ? `
-    <tr><td>To'langan</td><td class="v">${money(s.paid_base, false)}</td></tr>
-    <tr><td><b>Qarz</b></td><td class="v">${money(s.due_base, false)}</td></tr>` : ''}
-  </table></div>
-
-  <div class="words">Summa so'z bilan: <b>${amountInWords(total)} so'm</b></div>
-
-  ${kind === 'waybill' && (s.delivery_driver || s.delivery_vehicle) ? `
-  <div class="note">
-    ${s.delivery_driver ? `Haydovchi: ${esc(s.delivery_driver)}` : ''}
-    ${s.delivery_vehicle ? ` · Mashina: ${esc(s.delivery_vehicle)}` : ''}
-  </div>` : ''}
-
-  <div class="sign">
-    <div><div class="line"></div>Topshirdi (F.I.Sh., imzo)</div>
-    <div><div class="line"></div>Qabul qildi (F.I.Sh., imzo)</div>
-  </div>
-
-  <div class="note">
-    Bu hujjat Imperial Partners boshqaruv platformasidan chiqarildi.
-    Rasmiy schyot-faktura buxgalteriya orqali rasmiylashtiriladi.
-  </div>
-
-  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250))</script>
+  <div class="noprint"><button class="btn" onclick="window.print()">Chop etish</button></div>
+  ${body}
+  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300))</script>
 </body></html>`
 
   const w = window.open('', '_blank', 'width=900,height=1000')
@@ -174,4 +175,24 @@ export function printSaleDoc(
   }
   w.document.write(html)
   w.document.close()
+}
+
+/** Bitta sotuvdan hujjat */
+export function printSaleDoc(
+  s: SaleBoardRow, items: SaleItemRow[], refs: Refs, kind: DocKind,
+) {
+  const title = `${kind === 'waybill' ? 'Yuk xati' : 'Hisob-faktura'} ${s.doc_no ?? s.id}`
+  openPrintWindow(title, buildDocBody(s, items, refs, kind))
+}
+
+/** Bir nechta hujjat — har biri alohida sahifada */
+export function printManySaleDocs(
+  docs: { sale: SaleBoardRow; items: SaleItemRow[] }[],
+  refs: Refs,
+  kind: DocKind,
+) {
+  if (docs.length === 0) return
+  const body = docs.map((d) => buildDocBody(d.sale, d.items, refs, kind)).join('')
+  const title = `${kind === 'waybill' ? 'Yuk xatlari' : 'Hisob-fakturalar'} (${docs.length})`
+  openPrintWindow(title, body)
 }

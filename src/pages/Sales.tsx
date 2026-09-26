@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Trash2, Search, AlertTriangle, CheckCircle2, Clock, Ban, Send,
-  Download, Truck, Filter, X as XIcon,
+  Download, Truck, Filter, X as XIcon, Printer,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -16,6 +16,9 @@ import {
 import { dateShort, isoDate, money, moneyShort, monthStart, num, pct } from '../lib/format'
 import { PayBadge, ShipBadge, SalesTotals, exportSalesCsv } from '../components/SaleIndicators'
 import SaleDetail from '../components/SaleDetail'
+import OrdersTab from '../components/OrdersTab'
+import ReturnsTab from '../components/ReturnsTab'
+import { printManySaleDocs } from '../components/printDoc'
 
 type Line = {
   key: string
@@ -32,6 +35,9 @@ export default function Sales() {
   const { profile, can } = useAuth()
   const refs = useRefs()
   const [openId, setOpenId] = useState<number | null>(null)
+  const [tab, setTab] = useState<'sales' | 'orders' | 'returns'>('sales')
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const [printing, setPrinting] = useState(false)
   const [rows, setRows] = useState<SaleBoardRow[]>([])
   const [from, setFrom] = useState(monthStart())
   const [to, setTo] = useState(isoDate())
@@ -42,6 +48,7 @@ export default function Sales() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [creating, setCreating] = useState(false)
+  const [editId, setEditId] = useState<number | null>(null)
   const [params, setParams] = useSearchParams()
   const presetCustomer = params.get('customer')
 
@@ -92,6 +99,26 @@ export default function Sales() {
     pending: rows.filter((r) => r.approval_status === 'pending').length,
   }), [rows])
 
+  async function printSelected(kind: 'waybill' | 'invoice') {
+    const ids = [...sel]
+    if (ids.length === 0) return
+    setPrinting(true)
+    try {
+      const { data } = await supabase.from('ip_sale_items')
+        .select('*, product:ip_products(name, code, unit_id)')
+        .in('sale_id', ids).order('sale_id').order('id')
+      const byId = new Map<number, typeof data>()
+      for (const it of (data ?? []) as { sale_id: number }[]) {
+        const arr = byId.get(it.sale_id) ?? []
+        arr.push(it as never)
+        byId.set(it.sale_id, arr as never)
+      }
+      const docs = rows.filter((r) => sel.has(r.id))
+        .map((r) => ({ sale: r, items: (byId.get(r.id) ?? []) as never }))
+      printManySaleDocs(docs, refs, kind)
+    } finally { setPrinting(false) }
+  }
+
   if (openId) return <SaleDetail id={openId} onBack={() => { setOpenId(null); void load() }} />
   if (loading || refs.loading) return <Loading />
 
@@ -120,6 +147,31 @@ export default function Sales() {
           </>
         }
       />
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {([
+          { k: 'sales',   l: 'Sotuv' },
+          { k: 'orders',  l: 'Buyurtma' },
+          { k: 'returns', l: 'Qaytarish' },
+        ] as { k: typeof tab; l: string }[]).map((t) => (
+          <button
+            key={t.k} onClick={() => setTab(t.k)}
+            className="rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors"
+            style={{
+              background: tab === t.k ? 'var(--brand-soft)' : 'var(--surface)',
+              color: tab === t.k ? 'var(--brand)' : 'var(--text-2)',
+              borderColor: tab === t.k ? 'var(--brand)' : 'var(--border-2)',
+            }}
+          >
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'orders'  && <OrdersTab onOpenSale={(id) => { setTab('sales'); setOpenId(id) }} />}
+      {tab === 'returns' && <ReturnsTab onOpenSale={(id) => { setTab('sales'); setOpenId(id) }} />}
+
+      {tab === 'sales' && <>
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}
 
@@ -151,6 +203,26 @@ export default function Sales() {
           </Button>
         )}
       </div>
+
+      {sel.size > 0 && (
+        <div
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
+          style={{ background: 'var(--brand-soft)', borderColor: 'var(--brand)' }}
+        >
+          <span className="text-[13px] font-medium" style={{ color: 'var(--brand)' }}>
+            {sel.size} ta hujjat belgilandi
+          </span>
+          <Button size="sm" loading={printing} onClick={() => void printSelected('waybill')}>
+            <Printer size={14} />Yuk xatlari
+          </Button>
+          <Button size="sm" loading={printing} onClick={() => void printSelected('invoice')}>
+            <Printer size={14} />Hisob-fakturalar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSel(new Set())}>
+            <XIcon size={13} />Bekor
+          </Button>
+        </div>
+      )}
 
       <div className="mb-3 flex flex-wrap gap-2">
         <div className="relative min-w-[200px] flex-1">
@@ -197,9 +269,17 @@ export default function Sales() {
             />
           ) : (
             <>
-              <Table minWidth={1180}>
+              <Table minWidth={1220}>
                 <thead>
                   <tr>
+                    <Th w={34}>
+                      <input
+                        type="checkbox"
+                        checked={sel.size > 0 && sel.size === filtered.length}
+                        onChange={(e) => setSel(e.target.checked
+                          ? new Set(filtered.map((r) => r.id)) : new Set())}
+                      />
+                    </Th>
                     <Th w={125}>Hujjat</Th>
                     <Th w={95}>Sana</Th>
                     <Th>Mijoz</Th>
@@ -214,7 +294,7 @@ export default function Sales() {
                 </thead>
                 <tbody>
                   {filtered.map((r) => (
-                    <Tr key={r.id} onClick={() => setOpenId(r.id)}>
+                    <Tr key={r.id} onClick={() => r.status === 'draft' ? setEditId(r.id) : setOpenId(r.id)}>
                       <Td mono><span className="text-[12.5px]">{r.doc_no ?? `#${r.id}`}</span></Td>
                       <Td mono>{dateShort(r.doc_date)}</Td>
                       <Td>
@@ -271,12 +351,22 @@ export default function Sales() {
         </div>
       </Card>
 
-      {creating && (
+      </>}
+
+      {(creating || editId) && (
         <NewSale
           profileId={profile!.id}
+          editSaleId={editId}
           presetCustomerId={presetCustomer ? Number(presetCustomer) : null}
-          onClose={() => { setCreating(false); if (presetCustomer) setParams({}, { replace: true }) }}
-          onDone={() => { setCreating(false); if (presetCustomer) setParams({}, { replace: true }); void load() }}
+          onClose={() => {
+            setCreating(false); setEditId(null)
+            if (presetCustomer) setParams({}, { replace: true })
+          }}
+          onDone={() => {
+            setCreating(false); setEditId(null)
+            if (presetCustomer) setParams({}, { replace: true })
+            void load()
+          }}
         />
       )}
     </div>
@@ -296,10 +386,11 @@ function BoardStatus({ r }: { r: SaleBoardRow }) {
 /* ================================================================ */
 
 function NewSale({
-  profileId, presetCustomerId, onClose, onDone,
+  profileId, presetCustomerId, editSaleId, onClose, onDone,
 }: {
   profileId: string
   presetCustomerId?: number | null
+  editSaleId?: number | null
   onClose: () => void
   onDone: () => void
 }) {
@@ -316,6 +407,7 @@ function NewSale({
   const [shipNow, setShipNow] = useState(true)
   const [lines, setLines] = useState<Line[]>([newLine()])
   const [priceMap, setPriceMap] = useState<Map<number, number>>(new Map())
+  const [stock, setStock] = useState<Map<number, { qty: number; reserved: number; free: number }>>(new Map())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [result, setResult] = useState<{ status: string; reasons?: string[]; margin_pct?: number } | null>(null)
@@ -334,6 +426,58 @@ function NewSale({
     if (customer?.payment_term_id) setTermId(customer.payment_term_id)
     else if (termId == null) setTermId(refs.terms.find((t) => t.is_default)?.id ?? null)
   }, [customer, refs.terms, termId])
+
+  // Tahrirlanayotgan qoralamani yuklaymiz
+  useEffect(() => {
+    if (!editSaleId) return
+    let alive = true
+    void Promise.all([
+      supabase.from('ip_sales').select('*').eq('id', editSaleId).single(),
+      supabase.from('ip_sale_items').select('*').eq('sale_id', editSaleId).order('id'),
+    ]).then(([a, b]) => {
+      if (!alive || !a.data) return
+      const sale = a.data as Sale & { shipment_mode?: string }
+      setCustomerId(sale.customer_id)
+      setWarehouseId(sale.warehouse_id)
+      setTermId(sale.payment_term_id)
+      setDocDate(sale.doc_date)
+      setNote(sale.note ?? '')
+      setShipNow((sale.shipment_mode ?? 'immediate') !== 'deferred')
+      const rows = (b.data as { product_id: number; qty: number; price: number; list_price: number }[]) ?? []
+      setLines(rows.length
+        ? rows.map((r) => ({
+            key: Math.random().toString(36).slice(2),
+            product_id: r.product_id,
+            qty: String(r.qty),
+            price: String(r.price),
+            list_price: Number(r.list_price),
+            margin: null, minMargin: null, noCost: false,
+          }))
+        : [newLine()])
+    })
+    return () => { alive = false }
+  }, [editSaleId])
+
+  // Tanlangan ombordagi erkin qoldiq
+  useEffect(() => {
+    if (!warehouseId) { setStock(new Map()); return }
+    let alive = true
+    void supabase.rpc('ip_stock_available_rows', { p_warehouse: warehouseId })
+      .then(({ data }) => {
+        if (!alive) return
+        const m = new Map<number, { qty: number; reserved: number; free: number }>()
+        for (const r of (data ?? []) as { product_id: number; qty: number;
+              qty_reserved: number; qty_available: number }[]) {
+          m.set(r.product_id, {
+            qty: Number(r.qty),
+            reserved: Number(r.qty_reserved),
+            free: Number(r.qty_available),
+          })
+        }
+        setStock(m)
+      })
+    return () => { alive = false }
+  }, [warehouseId])
 
   // Mijoz toifasi bo'yicha narxlar
   useEffect(() => {
@@ -381,17 +525,32 @@ function NewSale({
 
     setBusy(true); setErr('')
     try {
-      const { data: sale, error: e1 } = await supabase.rpc('ip_create_sale', {
-        p_customer: customerId, p_warehouse: warehouseId,
-        p_doc_date: docDate, p_term_id: termId,
-      })
-      if (e1) throw new Error(e1.message)
-      const saleId = (sale as Sale).id
+      let saleId: number
 
-      await supabase.from('ip_sales').update({
-        shipment_mode: shipNow ? 'immediate' : 'deferred',
-        note: note.trim() || null,
-      } as never).eq('id', saleId)
+      if (editSaleId) {
+        // Mavjud qoralamani yangilaymiz
+        const { error } = await supabase.from('ip_sales').update({
+          customer_id: customerId, warehouse_id: warehouseId,
+          doc_date: docDate, payment_term_id: termId,
+          shipment_mode: shipNow ? 'immediate' : 'deferred',
+          note: note.trim() || null,
+        } as never).eq('id', editSaleId)
+        if (error) throw new Error(error.message)
+        await supabase.from('ip_sale_items').delete().eq('sale_id', editSaleId)
+        saleId = editSaleId
+      } else {
+        const { data: sale, error: e1 } = await supabase.rpc('ip_create_sale', {
+          p_customer: customerId, p_warehouse: warehouseId,
+          p_doc_date: docDate, p_term_id: termId,
+        })
+        if (e1) throw new Error(e1.message)
+        saleId = (sale as Sale).id
+
+        await supabase.from('ip_sales').update({
+          shipment_mode: shipNow ? 'immediate' : 'deferred',
+          note: note.trim() || null,
+        } as never).eq('id', saleId)
+      }
 
       const { error: e2 } = await supabase.from('ip_sale_items').insert(
         valid.map((l) => ({
@@ -456,7 +615,7 @@ function NewSale({
 
   return (
     <Modal
-      open onClose={onClose} width={900} title="Yangi sotuv"
+      open onClose={onClose} width={900} title={editSaleId ? 'Qoralamani tahrirlash' : 'Yangi sotuv'}
       footer={
         <>
           <Button onClick={onClose}>Bekor</Button>
@@ -525,6 +684,9 @@ function NewSale({
                 const sum = Number(l.qty) * Number(l.price)
                 const low = l.margin != null && l.minMargin != null && l.margin < l.minMargin
                 const discounted = l.list_price > 0 && Number(l.price) < l.list_price
+                const st = l.product_id ? stock.get(l.product_id) : undefined
+                const free = st?.free ?? 0
+                const notEnough = l.product_id != null && Number(l.qty) > 0 && Number(l.qty) > free
                 return (
                   <Tr key={l.key}>
                     <Td>
@@ -532,17 +694,38 @@ function NewSale({
                         value={l.product_id ?? ''}
                         onChange={(v) => v && void pickProduct(l.key, Number(v))}
                         placeholder="Tovarni tanlang…"
-                        options={products.map((p) => ({
-                          value: p.id,
-                          label: p.code ? `${p.code} — ${p.name}` : p.name,
-                        }))}
+                        options={products.map((p) => {
+                          const s = stock.get(p.id)
+                          const base = p.code ? `${p.code} — ${p.name}` : p.name
+                          return {
+                            value: p.id,
+                            label: s
+                              ? `${base}  ·  ${num(s.free, 2)} mavjud${s.reserved > 0 ? ` (${num(s.reserved, 2)} band)` : ''}`
+                              : `${base}  ·  omborda yo'q`,
+                          }
+                        })}
                       />
+                      {st && (
+                        <div className="mt-0.5 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+                          Omborda {num(st.qty, 2)}
+                          {st.reserved > 0 && <> · band {num(st.reserved, 2)}</>}
+                          {' · '}
+                          <b style={{ color: free > 0 ? 'var(--ok)' : 'var(--danger)' }}>
+                            erkin {num(free, 2)}
+                          </b>
+                        </div>
+                      )}
                     </Td>
                     <Td>
                       <Input
                         type="number" className="text-right" value={l.qty}
                         onChange={(v) => setLine(l.key, { qty: v })}
                       />
+                      {notEnough && (
+                        <div className="mt-0.5 text-right text-[11.5px]" style={{ color: 'var(--danger)' }}>
+                          {free > 0 ? `faqat ${num(free, 2)} erkin` : 'erkin qoldiq yo\'q'}
+                        </div>
+                      )}
                     </Td>
                     <Td>
                       <Input
@@ -603,6 +786,22 @@ function NewSale({
             </span>
           </InfoBox>
         )}
+        {shipNow && valid.some((l) => {
+          const st = l.product_id ? stock.get(l.product_id) : undefined
+          return Number(l.qty) > (st?.free ?? 0)
+        }) && (
+          <InfoBox tone="danger">
+            <span className="flex items-start gap-2">
+              <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+              <span>
+                Ba'zi qatorda <b>erkin qoldiqdan ko'p</b> miqdor kiritilgan.
+                Yuk hozir chiqadigan bo'lsa postlashda xato beradi — miqdorni
+                kamaytiring yoki "yuk keyin chiqadi" qilib qo'ying.
+              </span>
+            </span>
+          </InfoBox>
+        )}
+
         {bigSale && (
           <InfoBox tone="info">
             Summa katta sotuv chegarasidan ({money(n('large_sale_approval_amount'))}) yuqori —

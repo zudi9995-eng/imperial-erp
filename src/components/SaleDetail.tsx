@@ -21,7 +21,7 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
   const [items, setItems] = useState<SaleItemRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [modal, setModal] = useState<'ship' | 'return' | 'delivery' | null>(null)
+  const [modal, setModal] = useState<'ship' | 'return' | 'delivery' | 'pay' | null>(null)
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -69,6 +69,11 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
           <Button size="sm" onClick={() => printSaleDoc(s, items, refs, 'invoice')}>
             <Printer size={14} />Hisob-faktura
           </Button>
+          {s.status === 'posted' && Number(s.due_base) > 0 && can('pay.customer') && (
+            <Button size="sm" variant="primary" onClick={() => setModal('pay')}>
+              <Banknote size={14} />To'lov
+            </Button>
+          )}
           {canShip && (
             <Button size="sm" variant="primary" onClick={() => setModal('ship')}>
               <Truck size={14} />Yukni chiqarish
@@ -208,6 +213,10 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
       )}
       {modal === 'return' && (
         <ReturnModal sale={s} items={items} refs={refs}
+          onClose={() => setModal(null)} onDone={() => { setModal(null); void load() }} />
+      )}
+      {modal === 'pay' && (
+        <PayModal sale={s}
           onClose={() => setModal(null)} onDone={() => { setModal(null); void load() }} />
       )}
       {modal === 'delivery' && (
@@ -478,6 +487,120 @@ function DeliveryModal({
         <Field label="Yetkazilgan sana">
           <Input type="date" value={delivered} onChange={setDelivered} />
         </Field>
+        <Field label="Izoh"><Textarea value={note} onChange={setNote} rows={2} /></Field>
+        {err && <ErrorBox>{err}</ErrorBox>}
+      </div>
+    </Modal>
+  )
+}
+
+
+function PayModal({
+  sale, onClose, onDone,
+}: { sale: SaleBoardRow; onClose: () => void; onDone: () => void }) {
+  const [amount, setAmount] = useState(String(Number(sale.due_base) || ''))
+  const [account, setAccount] = useState<number | null>(null)
+  const [date, setDate] = useState(isoDate())
+  const [method, setMethod] = useState('cash')
+  const [note, setNote] = useState('')
+  const [accounts, setAccounts] = useState<{ cash_account_id: number; name: string; balance_base: number }[]>([])
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [res, setRes] = useState<{ applied: number; advance: number } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void supabase.from('ip_cash_balances').select('*').then(({ data }) => {
+      if (!alive) return
+      const rows = (data as never as { cash_account_id: number; name: string; balance_base: number }[]) ?? []
+      setAccounts(rows)
+      setAccount((c) => c ?? rows[0]?.cash_account_id ?? null)
+    })
+    return () => { alive = false }
+  }, [])
+
+  async function save() {
+    if (!account) { setErr('Kassa tanlanmagan'); return }
+    setBusy(true); setErr('')
+    const { data, error } = await supabase.rpc('ip_pay_sale', {
+      p_sale_id: sale.id, p_amount: Number(amount), p_account: account,
+      p_date: date, p_method: method, p_note: note.trim() || null,
+    })
+    setBusy(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    setRes(data as { applied: number; advance: number })
+  }
+
+  if (res) {
+    return (
+      <Modal open onClose={onDone} width={440} title="To'lov kiritildi"
+        footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}>
+        <div className="space-y-3">
+          <InfoBox tone="ok">
+            <b>{money(res.applied)}</b> shu hujjat qarziga yopildi.
+          </InfoBox>
+          {res.advance > 0 && (
+            <InfoBox tone="info">
+              Ortgan <b>{money(res.advance)}</b> mijozning avansi sifatida yozildi.
+            </InfoBox>
+          )}
+        </div>
+      </Modal>
+    )
+  }
+
+  const extra = Math.max(0, Number(amount) - Number(sale.due_base))
+
+  return (
+    <Modal open onClose={onClose} width={480}
+      title={`To'lov — ${sale.doc_no ?? sale.id}`}
+      footer={<><Button onClick={onClose}>Bekor</Button>
+        <Button variant="primary" loading={busy} onClick={save} disabled={!(Number(amount) > 0)}>
+          <Banknote size={14} />Kiritish
+        </Button></>}>
+      <div className="space-y-3">
+        <InfoBox>
+          Bu hujjat bo'yicha qarz: <b>{money(sale.due_base)}</b>
+          {' · '}mijoz: {sale.customer_name}
+        </InfoBox>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Summa" required>
+            <Input type="number" className="text-right tnum" value={amount} onChange={setAmount} autoFocus />
+          </Field>
+          <Field label="Sana"><Input type="date" value={date} onChange={setDate} /></Field>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Qayerga tushdi" required>
+            <select
+              value={account ?? ''} onChange={(e) => setAccount(Number(e.target.value))}
+              className="w-full rounded-lg border px-2.5 py-2 text-sm outline-none focus:border-[var(--brand)]"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border-2)' }}
+            >
+              {accounts.map((a) => (
+                <option key={a.cash_account_id} value={a.cash_account_id}>
+                  {a.name} — {money(a.balance_base, false)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="To'lov turi">
+            <select
+              value={method} onChange={(e) => setMethod(e.target.value)}
+              className="w-full rounded-lg border px-2.5 py-2 text-sm outline-none focus:border-[var(--brand)]"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border-2)' }}
+            >
+              <option value="cash">Naqd</option>
+              <option value="bank">Bank o'tkazmasi</option>
+              <option value="card">Karta</option>
+              <option value="other">Boshqa</option>
+            </select>
+          </Field>
+        </div>
+        {extra > 0 && (
+          <InfoBox tone="warn">
+            Summa qarzdan <b>{money(extra)}</b> ko'p — ortgani avans bo'lib qoladi.
+          </InfoBox>
+        )}
         <Field label="Izoh"><Textarea value={note} onChange={setNote} rows={2} /></Field>
         {err && <ErrorBox>{err}</ErrorBox>}
       </div>
