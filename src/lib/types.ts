@@ -446,3 +446,79 @@ export interface ArBucket {
   amount_base: number
   sort_order: number
 }
+
+export interface Position {
+  cash_base: number
+  stock_base: number
+  receivable_base: number
+  supplier_advance_base: number
+  supplier_debt_base: number
+  customer_advance_base: number
+  loan_base: number
+}
+
+export interface CashFlowRow {
+  period: string
+  inflow_base: number
+  outflow_partner_base: number
+  outflow_expense_base: number
+  outflow_loan_base: number
+  outflow_base: number
+  net_flow_base: number
+}
+
+export interface PlanVsFact {
+  period_month: string
+  manager_id: string
+  full_name: string
+  plan_base: number
+  fact_base: number
+  gross_profit_base: number
+  done_pct: number | null
+  margin_pct: number | null
+}
+
+export interface BudgetRow {
+  period_month: string
+  category_id: number
+  category_name: string
+  kind: 'fixed' | 'variable' | 'other'
+  is_payroll: boolean
+  formula: string | null
+  plan_base: number
+  actual_base: number
+  diff_base: number
+}
+
+export interface Period {
+  period_month: string
+  sales_plan: number
+  margin_plan: number | null
+  is_closed: boolean
+  note: string | null
+}
+
+export interface Expense {
+  id: number
+  doc_date: string
+  expense_category_id: number | null
+  cash_account_id: number | null
+  supplier_id: number | null
+  amount: number
+  amount_base: number
+  description: string | null
+  is_paid: boolean
+}
+
+export interface SupplierBalance {
+  supplier_id: number
+  name: string
+  phone: string | null
+  contact_person: string | null
+  opening_debt: number
+  opening_advance: number
+  purchased_base: number
+  paid_base: number
+  debt_base: number
+  note: string | null
+}
