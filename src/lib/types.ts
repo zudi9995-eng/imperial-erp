@@ -418,3 +418,31 @@ export interface Loan {
   note: string | null
   is_active: boolean
 }
+
+export interface ArCustomer {
+  customer_id: number
+  name: string
+  phone: string | null
+  manager_id: string | null
+  tier_id: number | null
+  status: CustomerStatus
+  outstanding_base: number
+  advance_base: number
+  net_base: number
+  overdue_base: number
+  overdue_days: number
+  oldest_due: string | null
+  doc_count: number
+  overdue_docs: number
+  last_contact_at: string | null
+  next_action_at: string | null
+  priority: number
+}
+
+export interface ArBucket {
+  bucket: string
+  doc_count: number
+  customer_count: number
+  amount_base: number
+  sort_order: number
+}
