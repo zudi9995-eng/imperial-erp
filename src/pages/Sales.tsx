@@ -2,17 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Trash2, Search, AlertTriangle, CheckCircle2, Clock, Ban, Send,
+  Download, Truck, Filter, X as XIcon,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { useCustomers, useProducts, useRefs, translateDbError } from '../lib/useRefs'
-import type { Customer, Product, Sale } from '../lib/types'
+import type { Customer, Product, Sale, SaleBoardRow } from '../lib/types'
 import {
   Badge, Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
-  PageHeader, Select, Stat, Table, Td, Th, Tr, Textarea,
+  PageHeader, Select, Stat, Table, Td, Th, Toggle, Tr, Textarea,
 } from '../components/ui'
 import { dateShort, isoDate, money, moneyShort, monthStart, num, pct } from '../lib/format'
+import { PayBadge, ShipBadge, SalesTotals, exportSalesCsv } from '../components/SaleIndicators'
+import SaleDetail from '../components/SaleDetail'
 
 type Line = {
   key: string
@@ -26,11 +29,15 @@ type Line = {
 }
 
 export default function Sales() {
-  const { profile, isOwner } = useAuth()
-  const [rows, setRows] = useState<(Sale & { customer: { name: string } | null })[]>([])
+  const { profile, can } = useAuth()
+  const refs = useRefs()
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [rows, setRows] = useState<SaleBoardRow[]>([])
   const [from, setFrom] = useState(monthStart())
   const [to, setTo] = useState(isoDate())
   const [status, setStatus] = useState('')
+  const [mgr, setMgr] = useState('')
+  const [quick, setQuick] = useState<'' | 'unpaid' | 'overdue' | 'unshipped' | 'pending'>('')
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -41,51 +48,59 @@ export default function Sales() {
   const load = useCallback(async () => {
     setLoading(true)
     let query = supabase
-      .from('ip_sales')
-      .select('*, customer:ip_customers(name)')
+      .from('ip_sales_board')
+      .select('*')
       .gte('doc_date', from).lte('doc_date', to)
       .order('doc_date', { ascending: false })
       .order('id', { ascending: false })
-      .limit(300)
+      .limit(500)
     if (status) query = query.eq('status', status)
 
     const { data, error } = await query
     if (error) setErr(translateDbError(error.message))
     else setErr('')
-    setRows((data as never) ?? [])
+    setRows((data as SaleBoardRow[]) ?? [])
     setLoading(false)
   }, [from, to, status])
 
   useEffect(() => { void load() }, [load])
 
-  // Mijoz kartochkasidan kelingan bo'lsa sotuv oynasini ochamiz
   useEffect(() => {
     if (presetCustomer) setCreating(true)
   }, [presetCustomer])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) =>
-      (r.customer?.name ?? '').toLowerCase().includes(s)
-      || (r.doc_no ?? '').toLowerCase().includes(s))
-  }, [rows, q])
+    return rows.filter((r) => {
+      if (mgr && r.manager_id !== mgr) return false
+      if (quick === 'unpaid'    && !(r.status === 'posted' && r.due_base > 0)) return false
+      if (quick === 'overdue'   && !r.is_overdue) return false
+      if (quick === 'unshipped' && !(r.status === 'posted' && r.source !== 'opening'
+                                     && r.shipment_status !== 'shipped')) return false
+      if (quick === 'pending'   && r.approval_status !== 'pending') return false
+      if (!s) return true
+      return r.customer_name.toLowerCase().includes(s)
+        || (r.doc_no ?? '').toLowerCase().includes(s)
+    })
+  }, [rows, q, mgr, quick])
 
-  const totals = useMemo(() => {
-    const posted = filtered.filter((r) => r.status === 'posted')
-    const revenue = posted.reduce((a, r) => a + Number(r.total_base), 0)
-    const gp = posted.reduce((a, r) => a + Number(r.gross_profit_base), 0)
-    const paid = posted.reduce((a, r) => a + Number(r.paid_base), 0)
-    return {
-      count: posted.length,
-      revenue,
-      margin: revenue > 0 ? (gp / revenue) * 100 : null,
-      unpaid: revenue - paid,
-      pending: filtered.filter((r) => r.approval_status === 'pending').length,
-    }
-  }, [filtered])
+  const counts = useMemo(() => ({
+    unpaid: rows.filter((r) => r.status === 'posted' && r.due_base > 0).length,
+    overdue: rows.filter((r) => r.is_overdue).length,
+    unshipped: rows.filter((r) => r.status === 'posted' && r.source !== 'opening'
+      && r.shipment_status !== 'shipped').length,
+    pending: rows.filter((r) => r.approval_status === 'pending').length,
+  }), [rows])
 
-  if (loading) return <Loading />
+  if (openId) return <SaleDetail id={openId} onBack={() => { setOpenId(null); void load() }} />
+  if (loading || refs.loading) return <Loading />
+
+  const QUICK: { key: typeof quick; label: string; n: number; tone: string }[] = [
+    { key: 'unpaid',    label: "To'lanmagan",  n: counts.unpaid,    tone: 'var(--warn)' },
+    { key: 'overdue',   label: "Muddati o'tgan", n: counts.overdue, tone: 'var(--danger)' },
+    { key: 'unshipped', label: 'Yuk chiqmagan', n: counts.unshipped, tone: 'var(--danger)' },
+    { key: 'pending',   label: 'Tasdiq kutmoqda', n: counts.pending, tone: 'var(--warn)' },
+  ]
 
   return (
     <div>
@@ -93,23 +108,48 @@ export default function Sales() {
         title="Sotuv"
         sub={`${dateShort(from)} — ${dateShort(to)} · ${filtered.length} hujjat`}
         actions={
-          <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-            <Plus size={14} />Yangi sotuv
-          </Button>
+          <>
+            <Button size="sm" onClick={() => exportSalesCsv(filtered)} title="Excel uchun CSV">
+              <Download size={14} />Yuklash
+            </Button>
+            {can('sales.create') && (
+              <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+                <Plus size={14} />Yangi sotuv
+              </Button>
+            )}
+          </>
         }
       />
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Sotuv (postlangan)" value={moneyShort(totals.revenue)} tone="brand" sub={`${totals.count} hujjat`} />
-        <Stat
-          label="O'rtacha marja"
-          value={totals.margin != null ? pct(totals.margin) : '—'}
-          tone={totals.margin == null ? 'neutral' : totals.margin >= 15 ? 'ok' : 'warn'}
-        />
-        <Stat label="To'lanmagan" value={moneyShort(totals.unpaid)} tone={totals.unpaid > 0 ? 'warn' : 'ok'} />
-        <Stat label="Tasdiq kutmoqda" value={totals.pending} tone={totals.pending > 0 ? 'warn' : 'neutral'} />
+      {/* Tez filtrlar */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {QUICK.map((f) => {
+          const on = quick === f.key
+          return (
+            <button
+              key={f.key}
+              onClick={() => setQuick(on ? '' : f.key)}
+              disabled={f.n === 0 && !on}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-40"
+              style={{
+                background: on ? 'var(--brand-soft)' : 'var(--surface)',
+                color: on ? 'var(--brand)' : 'var(--text-2)',
+                borderColor: on ? 'var(--brand)' : 'var(--border-2)',
+              }}
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: f.tone }} />
+              {f.label}
+              <span className="tnum" style={{ color: 'var(--text-3)' }}>{f.n}</span>
+            </button>
+          )
+        })}
+        {quick && (
+          <Button size="sm" variant="ghost" onClick={() => setQuick('')}>
+            <XIcon size={13} />Tozalash
+          </Button>
+        )}
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">
@@ -124,7 +164,16 @@ export default function Sales() {
         </div>
         <div className="w-[150px]"><Input type="date" value={from} onChange={setFrom} /></div>
         <div className="w-[150px]"><Input type="date" value={to} onChange={setTo} /></div>
-        <div className="w-[160px]">
+        {can('view.hr') && (
+          <div className="w-[180px]">
+            <Select
+              value={mgr} onChange={setMgr} placeholder="Hamma menejer"
+              options={refs.profiles.filter((p) => p.role !== 'accountant')
+                .map((p) => ({ value: p.id, label: p.full_name }))}
+            />
+          </div>
+        )}
+        <div className="w-[150px]">
           <Select
             value={status} onChange={setStatus} placeholder="Hamma holat"
             options={[
@@ -140,62 +189,84 @@ export default function Sales() {
         <div className="p-4">
           {filtered.length === 0 ? (
             <Empty
-              title="Bu davrda sotuv yo'q"
-              hint="Sana oralig'ini o'zgartiring yoki yangi sotuv kiriting."
-              action={<Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yangi sotuv</Button>}
+              title="Hujjat topilmadi"
+              hint="Sana oralig'ini yoki filtrni o'zgartiring."
+              action={can('sales.create')
+                ? <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yangi sotuv</Button>
+                : undefined}
             />
           ) : (
-            <Table minWidth={isOwner ? 960 : 820}>
-              <thead>
-                <tr>
-                  <Th w={130}>Hujjat</Th>
-                  <Th w={100}>Sana</Th>
-                  <Th>Mijoz</Th>
-                  <Th w={130} align="right">Summa</Th>
-                  {isOwner && <Th w={90} align="right">Marja</Th>}
-                  <Th w={130} align="right">To'langan</Th>
-                  <Th w={110}>Muddat</Th>
-                  <Th w={130} align="center">Holat</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => {
-                  const overdue = r.status === 'posted' && r.due_date
-                    && r.due_date < isoDate() && r.total_base > r.paid_base
-                  return (
-                    <Tr key={r.id}>
+            <>
+              <Table minWidth={1180}>
+                <thead>
+                  <tr>
+                    <Th w={125}>Hujjat</Th>
+                    <Th w={95}>Sana</Th>
+                    <Th>Mijoz</Th>
+                    {can('view.hr') && <Th w={130}>Menejer</Th>}
+                    <Th w={130} align="right">Summa</Th>
+                    {can('cost.view') && <Th w={80} align="right">Marja</Th>}
+                    <Th w={130}>To'lov</Th>
+                    <Th w={110}>Yuk</Th>
+                    <Th w={95}>Muddat</Th>
+                    <Th w={115} align="center">Holat</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <Tr key={r.id} onClick={() => setOpenId(r.id)}>
                       <Td mono><span className="text-[12.5px]">{r.doc_no ?? `#${r.id}`}</span></Td>
                       <Td mono>{dateShort(r.doc_date)}</Td>
-                      <Td><span className="font-medium">{r.customer?.name ?? '—'}</span></Td>
-                      <Td align="right" mono>{money(r.total_base, false)}</Td>
-                      {isOwner && (
-                        <Td align="right" mono>
-                          {r.margin_pct != null
-                            ? <span style={{ color: r.margin_pct < 10 ? 'var(--danger)' : r.margin_pct < 15 ? 'var(--warn)' : 'var(--ok)' }}>
-                                {pct(r.margin_pct)}
-                              </span>
-                            : '—'}
-                        </Td>
-                      )}
-                      <Td align="right" mono>
-                        {money(r.paid_base, false)}
-                        {r.status === 'posted' && r.total_base > r.paid_base && (
-                          <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
-                            qarz {moneyShort(r.total_base - r.paid_base)}
+                      <Td>
+                        <div className="font-medium">{r.customer_name}</div>
+                        {r.delivery_address && (
+                          <div className="line-clamp-1 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+                            {r.delivery_address}
                           </div>
                         )}
                       </Td>
+                      {can('view.hr') && (
+                        <Td><span className="text-[12.5px]">{r.manager_name ?? '—'}</span></Td>
+                      )}
+                      <Td align="right" mono>
+                        {money(r.net_base, false)}
+                        {Number(r.returned_base) > 0 && (
+                          <div className="text-[11px]" style={{ color: 'var(--warn)' }}>
+                            qaytgan {moneyShort(r.returned_base)}
+                          </div>
+                        )}
+                      </Td>
+                      {can('cost.view') && (
+                        <Td align="right" mono>
+                          {r.margin_pct != null ? (
+                            <span style={{
+                              color: Number(r.margin_pct) < 10 ? 'var(--danger)'
+                                : Number(r.margin_pct) < 15 ? 'var(--warn)' : 'var(--ok)',
+                            }}>{pct(r.margin_pct)}</span>
+                          ) : '—'}
+                        </Td>
+                      )}
+                      <Td>
+                        <PayBadge r={r} />
+                        {Number(r.due_base) > 0 && r.status === 'posted' && (
+                          <div className="tnum text-[11px]" style={{ color: 'var(--text-3)' }}>
+                            qarz {moneyShort(r.due_base)}
+                          </div>
+                        )}
+                      </Td>
+                      <Td><ShipBadge r={r} /></Td>
                       <Td mono>
-                        <span style={{ color: overdue ? 'var(--danger)' : undefined }}>
+                        <span style={{ color: r.is_overdue ? 'var(--danger)' : undefined }}>
                           {r.due_date ? dateShort(r.due_date) : '—'}
                         </span>
                       </Td>
-                      <Td align="center"><StatusBadge sale={r} /></Td>
+                      <Td align="center"><BoardStatus r={r} /></Td>
                     </Tr>
-                  )
-                })}
-              </tbody>
-            </Table>
+                  ))}
+                </tbody>
+              </Table>
+              <div className="mt-3"><SalesTotals rows={filtered} /></div>
+            </>
           )}
         </div>
       </Card>
@@ -212,11 +283,11 @@ export default function Sales() {
   )
 }
 
-function StatusBadge({ sale }: { sale: Sale }) {
-  if (sale.status === 'cancelled') return <Badge tone="neutral"><Ban size={11} />bekor</Badge>
-  if (sale.approval_status === 'pending') return <Badge tone="warn"><Clock size={11} />tasdiq kutmoqda</Badge>
-  if (sale.approval_status === 'rejected') return <Badge tone="danger"><Ban size={11} />rad etildi</Badge>
-  if (sale.status === 'posted') return <Badge tone="ok"><CheckCircle2 size={11} />postlangan</Badge>
+function BoardStatus({ r }: { r: SaleBoardRow }) {
+  if (r.status === 'cancelled') return <Badge tone="neutral"><Ban size={11} />bekor</Badge>
+  if (r.approval_status === 'pending') return <Badge tone="warn"><Clock size={11} />tasdiq</Badge>
+  if (r.approval_status === 'rejected') return <Badge tone="danger"><Ban size={11} />rad etildi</Badge>
+  if (r.status === 'posted') return <Badge tone="ok"><CheckCircle2 size={11} />postlangan</Badge>
   return <Badge tone="info">qoralama</Badge>
 }
 
@@ -242,6 +313,7 @@ function NewSale({
   const [termId, setTermId] = useState<number | null>(null)
   const [docDate, setDocDate] = useState(isoDate())
   const [note, setNote] = useState('')
+  const [shipNow, setShipNow] = useState(true)
   const [lines, setLines] = useState<Line[]>([newLine()])
   const [priceMap, setPriceMap] = useState<Map<number, number>>(new Map())
   const [busy, setBusy] = useState(false)
@@ -316,9 +388,10 @@ function NewSale({
       if (e1) throw new Error(e1.message)
       const saleId = (sale as Sale).id
 
-      if (note.trim()) {
-        await supabase.from('ip_sales').update({ note: note.trim() } as never).eq('id', saleId)
-      }
+      await supabase.from('ip_sales').update({
+        shipment_mode: shipNow ? 'immediate' : 'deferred',
+        note: note.trim() || null,
+      } as never).eq('id', saleId)
 
       const { error: e2 } = await supabase.from('ip_sale_items').insert(
         valid.map((l) => ({
@@ -536,6 +609,21 @@ function NewSale({
             tasdiqlash so'raladi.
           </InfoBox>
         )}
+
+        <div
+          className="rounded-lg border p-3"
+          style={{ borderColor: shipNow ? 'var(--border-2)' : 'var(--warn)' }}
+        >
+          <Toggle
+            checked={shipNow} onChange={setShipNow}
+            label={shipNow ? 'Yuk hozir chiqadi' : 'Yuk keyin chiqadi'}
+          />
+          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--text-3)' }}>
+            {shipNow
+              ? 'Tovar darhol ombordan yechiladi, tan narx va marja aniq hisoblanadi.'
+              : "Tovar band qilinadi — boshqa sotuvda mavjud emas deb hisoblanadi. Keyin 'Yukni chiqarish' tugmasi bilan chiqariladi."}
+          </p>
+        </div>
 
         <Field label="Izoh">
           <Textarea value={note} onChange={setNote} rows={2} placeholder="Ixtiyoriy" />

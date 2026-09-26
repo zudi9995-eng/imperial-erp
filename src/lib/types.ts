@@ -785,3 +785,100 @@ export interface FinalSettlement {
   advance_due: number
   total: number
 }
+
+export type PayStatus = 'paid' | 'partial' | 'unpaid' | 'n/a'
+export type ShipStatus = 'shipped' | 'partial' | 'not_shipped'
+
+export interface SaleBoardRow {
+  id: number
+  doc_no: string | null
+  doc_date: string
+  due_date: string | null
+  customer_id: number
+  customer_name: string
+  phone: string | null
+  manager_id: string | null
+  manager_name: string | null
+  warehouse_id: number
+  status: DocStatus
+  approval_status: ApprovalStatus
+  source: string
+  total_base: number
+  returned_base: number
+  paid_base: number
+  net_base: number
+  due_base: number
+  cogs_base: number
+  gross_profit_base: number
+  margin_pct: number | null
+  shipment_mode: 'immediate' | 'deferred'
+  shipment_status: ShipStatus
+  shipped_at: string | null
+  delivery_address: string | null
+  delivery_driver: string | null
+  delivery_vehicle: string | null
+  delivery_note: string | null
+  note: string | null
+  delivered_at: string | null
+  pay_status: PayStatus
+  paid_pct: number
+  is_overdue: boolean
+  overdue_days: number
+  qty_total: number
+  qty_shipped: number
+}
+
+export interface SaleItemRow {
+  id: number
+  sale_id: number
+  product_id: number
+  qty: number
+  qty_shipped: number
+  qty_returned: number
+  price: number
+  list_price: number
+  line_total: number
+  cogs_base: number
+  margin_pct: number | null
+  product?: { name: string; code: string | null; unit_id: number | null } | null
+}
+
+export interface Order {
+  id: number
+  doc_no: string | null
+  customer_id: number
+  manager_id: string | null
+  warehouse_id: number
+  doc_date: string
+  valid_until: string | null
+  status: 'draft' | 'confirmed' | 'converted' | 'cancelled'
+  total: number
+  sale_id: number | null
+  note: string | null
+}
+
+export interface SaleReturn {
+  id: number
+  doc_no: string | null
+  sale_id: number | null
+  customer_id: number
+  warehouse_id: number
+  doc_date: string
+  total_base: number
+  cogs_base: number
+  status: DocStatus
+  reason: string | null
+  note: string | null
+}
+
+export interface StockAvailable {
+  product_id: number
+  code: string | null
+  name: string
+  unit_code: string | null
+  warehouse_id: number
+  warehouse_name: string
+  qty: number
+  qty_reserved: number
+  qty_available: number
+}
