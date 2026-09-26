@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Plus, Trash2, Check, Ban, ArrowRightLeft, Search, Clock, AlertTriangle,
+  Plus, Copy, Check, Ban, ArrowRightLeft, Search, Filter,
+  RefreshCw, X as XIcon, FileText,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useCustomers, useProducts, useRefs, translateDbError } from '../lib/useRefs'
 import type { Order } from '../lib/types'
 import {
-  Badge, Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
-  Select, Stat, Table, Td, Textarea, Th, Toggle, Tr, type Tone,
+  Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
+  Select, Textarea, Toggle,
 } from './ui'
-import { dateShort, isoDate, money, moneyShort, num } from '../lib/format'
+import {
+  DocTable, DocTd, DocTh, DocToolbar, DocTr, MarkLegend, StatusDot, type Mark,
+} from './docList'
+import { dateShort, isoDate, money, num } from '../lib/format'
 
 interface OrderRow {
   id: number
@@ -20,11 +24,12 @@ interface OrderRow {
   status: 'draft' | 'confirmed' | 'converted' | 'cancelled'
   customer_id: number
   customer_name: string
-  phone: string | null
   manager_id: string | null
   manager_name: string | null
   warehouse_id: number
   warehouse_name: string | null
+  contract_id: number | null
+  contract_no: string | null
   total: number
   sale_id: number | null
   sale_doc_no: string | null
@@ -32,14 +37,21 @@ interface OrderRow {
   line_count: number
   qty_total: number
   is_expired: boolean
+  sale_net: number
+  sale_due: number
+  ship_mark: Mark
+  pay_mark: Mark
+  state: 'new' | 'confirmed' | 'in_progress' | 'done' | 'cancelled'
+  is_overdue: boolean
 }
 
-const ST_LABEL: Record<string, string> = {
-  draft: 'Qoralama', confirmed: 'Tasdiqlangan',
-  converted: 'Sotuvga aylandi', cancelled: 'Bekor qilingan',
-}
-const ST_TONE: Record<string, Tone> = {
-  draft: 'info', confirmed: 'warn', converted: 'ok', cancelled: 'neutral',
+/** 1C dagi "Состояние" ustuniga o'xshash */
+const STATE: Record<string, { label: string; attention: boolean }> = {
+  new:         { label: 'Ishlanmagan',    attention: true },
+  confirmed:   { label: 'Band qilindi',   attention: false },
+  in_progress: { label: 'Ishlanmoqda',    attention: false },
+  done:        { label: 'Yakunlangan',    attention: false },
+  cancelled:   { label: 'Bekor qilingan', attention: false },
 }
 
 export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => void }) {
@@ -47,15 +59,18 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
   const [rows, setRows] = useState<OrderRow[]>([])
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
+  const [sel, setSel] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
+  const [copyFrom, setCopyFrom] = useState<number | null>(null)
   const [convertId, setConvertId] = useState<number | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('ip_orders_board').select('*')
-      .order('doc_date', { ascending: false }).order('id', { ascending: false }).limit(300)
+      .order('doc_date', { ascending: false }).order('id', { ascending: false }).limit(500)
     if (error) setErr(translateDbError(error.message))
     else setErr('')
     setRows((data as OrderRow[]) ?? [])
@@ -67,11 +82,15 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     return rows.filter((r) => {
-      if (st && r.status !== st) return false
+      if (st && r.state !== st) return false
       if (!s) return true
-      return r.customer_name.toLowerCase().includes(s) || (r.doc_no ?? '').toLowerCase().includes(s)
+      return r.customer_name.toLowerCase().includes(s)
+        || (r.doc_no ?? '').toLowerCase().includes(s)
+        || (r.contract_no ?? '').toLowerCase().includes(s)
     })
   }, [rows, q, st])
+
+  const current = rows.find((r) => r.id === sel) ?? null
 
   async function act(id: number, action: 'confirm' | 'cancel') {
     setErr('')
@@ -84,51 +103,107 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
 
   if (loading) return <Loading />
 
-  const open = rows.filter((r) => r.status === 'draft' || r.status === 'confirmed')
-  const reserved = rows.filter((r) => r.status === 'confirmed')
-    .reduce((a, r) => a + Number(r.total), 0)
+  const total = filtered.reduce((a, r) => a + Number(r.total), 0)
 
   return (
-    <div className="space-y-4">
-      {err && <ErrorBox>{err}</ErrorBox>}
+    <div>
+      {err && <div className="mb-2"><ErrorBox>{err}</ErrorBox></div>}
 
-      <InfoBox>
-        Buyurtma — sotuvdan oldingi bosqich. <b>Tasdiqlansa</b> tovar band
-        qilinadi va boshqa sotuvda mavjud emas deb hisoblanadi. Keyin bir
-        bosishda sotuvga aylantiriladi.
-      </InfoBox>
+      <DocToolbar
+        left={
+          <>
+            {can('sales.create') && (
+              <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
+                <Plus size={14} />Yaratish
+              </Button>
+            )}
+            <Button
+              size="sm" disabled={!current} title="Nusxasini yaratish"
+              onClick={() => current && setCopyFrom(current.id)}
+            >
+              <Copy size={14} />
+            </Button>
+            <span className="mx-1 h-5 w-px" style={{ background: 'var(--border)' }} />
+            <Button
+              size="sm" disabled={!current || current.status !== 'draft'}
+              title="Tasdiqlash — tovar band qilinadi"
+              onClick={() => current && void act(current.id, 'confirm')}
+            >
+              <Check size={14} />Tasdiqlash
+            </Button>
+            <Button
+              size="sm" disabled={!current || current.status !== 'confirmed'}
+              title="Sotuvga aylantirish"
+              onClick={() => current && setConvertId(current.id)}
+            >
+              <ArrowRightLeft size={14} />Sotuv yaratish
+            </Button>
+            <Button
+              size="sm" disabled={!current || !['draft', 'confirmed'].includes(current.status)}
+              title="Bekor qilish"
+              onClick={() => {
+                if (current && confirm('Buyurtma bekor qilinsinmi?')) void act(current.id, 'cancel')
+              }}
+            >
+              <Ban size={14} />
+            </Button>
+            <span className="mx-1 h-5 w-px" style={{ background: 'var(--border)' }} />
+            <Button
+              size="sm" onClick={() => setShowFilter((v) => !v)}
+              title="Saralash"
+            >
+              <Filter size={14} />
+            </Button>
+            <Button size="sm" onClick={() => void load()} title="Yangilash">
+              <RefreshCw size={14} />
+            </Button>
+          </>
+        }
+        right={
+          <div className="relative w-[240px]">
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2"
+                    style={{ color: 'var(--text-3)' }} />
+            <input
+              value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Qidiruv…"
+              className="w-full rounded border py-[5px] pl-7 pr-7 text-[13px] outline-none focus:border-[var(--brand)]"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border-2)' }}
+            />
+            {q && (
+              <button onClick={() => setQ('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      style={{ color: 'var(--text-3)' }}>
+                <XIcon size={13} />
+              </button>
+            )}
+          </div>
+        }
+      />
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Stat label="Ochiq buyurtma" value={open.length} tone={open.length > 0 ? 'warn' : 'neutral'} />
-        <Stat label="Tasdiqlangan summa" value={moneyShort(reserved)} tone="brand" sub="Tovar band" />
-        <Stat label="Sotuvga aylangan" value={rows.filter((r) => r.status === 'converted').length} tone="ok" />
-        <Stat
-          label="Muddati o'tgan" value={rows.filter((r) => r.is_expired).length}
-          tone={rows.some((r) => r.is_expired) ? 'danger' : 'ok'}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
-          <input
-            value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mijoz yoki raqam…"
-            className="w-full rounded-lg border py-2 pl-8 pr-2.5 text-sm outline-none focus:border-[var(--brand)]"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border-2)' }}
-          />
-        </div>
-        <div className="w-[180px]">
-          <Select
-            value={st} onChange={setSt} placeholder="Hamma holat"
-            options={Object.entries(ST_LABEL).map(([k, l]) => ({ value: k, label: l }))}
-          />
-        </div>
-        {can('sales.create') && (
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            <Plus size={14} />Yangi buyurtma
+      {showFilter && (
+        <div
+          className="mb-2 flex flex-wrap items-end gap-2 rounded-lg border px-3 py-2"
+          style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
+        >
+          <div className="w-[190px]">
+            <Field label="Holat">
+              <Select
+                value={st} onChange={setSt} placeholder="Hammasi"
+                options={[
+                  { value: 'new', label: 'Ishlanmagan' },
+                  { value: 'confirmed', label: 'Band qilindi' },
+                  { value: 'in_progress', label: 'Ishlanmoqda' },
+                  { value: 'done', label: 'Yakunlangan' },
+                  { value: 'cancelled', label: 'Bekor qilingan' },
+                ]}
+              />
+            </Field>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => { setSt(''); setShowFilter(false) }}>
+            Tozalash
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <Card pad={false}>
         <div className="p-4">
@@ -137,96 +212,113 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
               title="Buyurtma yo'q"
               hint="Mijoz so'ragan, lekin hali rasmiylashtirilmagan tovarni shu yerga yozasiz."
               action={can('sales.create')
-                ? <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yangi buyurtma</Button>
+                ? <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yaratish</Button>
                 : undefined}
             />
           ) : (
-            <Table minWidth={980}>
-              <thead>
-                <tr>
-                  <Th w={130}>Hujjat</Th>
-                  <Th w={100}>Sana</Th>
-                  <Th>Mijoz</Th>
-                  <Th w={130}>Menejer</Th>
-                  <Th w={90} align="right">Qator</Th>
-                  <Th w={140} align="right">Summa</Th>
-                  <Th w={110}>Amal qiladi</Th>
-                  <Th w={140} align="center">Holat</Th>
-                  <Th w={160} align="right">Amallar</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <Tr key={r.id} onClick={() => r.status === 'draft' && setEditId(r.id)}>
-                    <Td mono>
-                      <span className="text-[12.5px]">{r.doc_no ?? `#${r.id}`}</span>
-                      {r.sale_doc_no && (
-                        <div className="text-[11px]" style={{ color: 'var(--ok)' }}>
-                          → {r.sale_doc_no}
-                        </div>
-                      )}
-                    </Td>
-                    <Td mono>{dateShort(r.doc_date)}</Td>
-                    <Td><span className="font-medium">{r.customer_name}</span></Td>
-                    <Td><span className="text-[12.5px]">{r.manager_name ?? '—'}</span></Td>
-                    <Td align="right" mono>{r.line_count}</Td>
-                    <Td align="right" mono>{money(r.total, false)}</Td>
-                    <Td mono>
-                      {r.valid_until ? (
-                        <span style={{ color: r.is_expired ? 'var(--danger)' : undefined }}>
-                          {dateShort(r.valid_until)}
-                        </span>
-                      ) : '—'}
-                    </Td>
-                    <Td align="center">
-                      <Badge tone={ST_TONE[r.status]}>{ST_LABEL[r.status]}</Badge>
-                      {r.is_expired && (
-                        <div className="mt-0.5 text-[11px]" style={{ color: 'var(--danger)' }}>
-                          muddati o'tgan
-                        </div>
-                      )}
-                    </Td>
-                    <Td align="right" stopClick>
-                      <span className="flex justify-end gap-1">
-                        {r.status === 'draft' && can('sales.create') && (
-                          <Button size="sm" variant="primary" title="Tasdiqlash"
-                            onClick={() => void act(r.id, 'confirm')}>
-                            <Check size={14} />
-                          </Button>
-                        )}
-                        {r.status === 'confirmed' && can('sales.create') && (
-                          <Button size="sm" variant="primary" title="Sotuvga aylantirish"
-                            onClick={() => setConvertId(r.id)}>
-                            <ArrowRightLeft size={14} />
-                          </Button>
-                        )}
-                        {r.status === 'converted' && r.sale_id && (
-                          <Button size="sm" title="Sotuvni ochish"
-                            onClick={() => onOpenSale(r.sale_id!)}>
-                            Sotuv
-                          </Button>
-                        )}
-                        {(r.status === 'draft' || r.status === 'confirmed') && can('sales.create') && (
-                          <Button size="sm" variant="ghost" title="Bekor qilish"
-                            onClick={() => { if (confirm('Buyurtma bekor qilinsinmi?')) void act(r.id, 'cancel') }}>
-                            <Ban size={14} />
-                          </Button>
-                        )}
-                      </span>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
+            <>
+              <DocTable minWidth={1120}>
+                <thead>
+                  <tr>
+                    <DocTh w={30} align="center"><span title="Yuk chiqishi">🚚</span></DocTh>
+                    <DocTh w={30} align="center"><span title="To'lov">₿</span></DocTh>
+                    <DocTh w={95}>Sana</DocTh>
+                    <DocTh w={130} sorted="desc">Raqam</DocTh>
+                    <DocTh w={120}>Holat</DocTh>
+                    <DocTh>Mijoz</DocTh>
+                    <DocTh w={150}>Shartnoma</DocTh>
+                    <DocTh w={140} align="right">Summa</DocTh>
+                    <DocTh w={130}>Menejer</DocTh>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => {
+                    const state = STATE[r.state] ?? STATE.new
+                    const att = state.attention || r.is_expired || r.is_overdue
+                    return (
+                      <DocTr
+                        key={r.id}
+                        selected={sel === r.id}
+                        attention={att}
+                        onClick={() => setSel(sel === r.id ? null : r.id)}
+                        onDoubleClick={() => {
+                          if (r.sale_id) onOpenSale(r.sale_id)
+                          else if (r.status === 'draft') { setSel(r.id); setEditId(r.id) }
+                        }}
+                      >
+                        <DocTd align="center">
+                          <StatusDot
+                            mark={r.ship_mark}
+                            title={
+                              r.ship_mark === 'full' ? 'Yuk chiqarilgan'
+                                : r.ship_mark === 'half' ? 'Qisman chiqarilgan'
+                                : r.ship_mark === 'none' ? '—' : 'Yuk chiqmagan'
+                            }
+                          />
+                        </DocTd>
+                        <DocTd align="center">
+                          <StatusDot
+                            mark={r.pay_mark}
+                            title={
+                              r.pay_mark === 'full' ? "To'liq to'langan"
+                                : r.pay_mark === 'half' ? `Qisman: qarz ${money(r.sale_due)}`
+                                : r.pay_mark === 'none' ? '—' : "To'lov yo'q"
+                            }
+                          />
+                        </DocTd>
+                        <DocTd mono>{dateShort(r.doc_date)}</DocTd>
+                        <DocTd mono tone={att ? 'attention' : 'normal'}>
+                          {r.doc_no ?? `#${r.id}`}
+                        </DocTd>
+                        <DocTd tone={state.attention ? 'attention' : 'normal'}>
+                          {state.label}
+                          {r.is_expired && (
+                            <div className="text-[11px]" style={{ color: 'var(--danger)' }}>
+                              muddati o'tgan
+                            </div>
+                          )}
+                        </DocTd>
+                        <DocTd tone="link">{r.customer_name}</DocTd>
+                        <DocTd tone={r.contract_no ? 'link' : 'muted'}>
+                          {r.contract_no ?? 'Asosiy shartnoma'}
+                        </DocTd>
+                        <DocTd align="right" mono>{money(r.total, false)}</DocTd>
+                        <DocTd tone="link">{r.manager_name ?? '—'}</DocTd>
+                      </DocTr>
+                    )
+                  })}
+                </tbody>
+              </DocTable>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
+                   style={{ borderColor: 'var(--border)' }}>
+                <MarkLegend items={[
+                  { mark: 'full',  label: 'bajarilgan' },
+                  { mark: 'half',  label: 'qisman' },
+                  { mark: 'empty', label: 'bajarilmagan' },
+                ]} />
+                <span className="text-[13px]">
+                  <span style={{ color: 'var(--text-3)' }}>{filtered.length} ta · Jami: </span>
+                  <b className="tnum">{money(total)}</b>
+                </span>
+              </div>
+            </>
           )}
         </div>
       </Card>
 
-      {(creating || editId) && (
+      {current && (
+        <div className="mt-3">
+          <OrderPreview row={current} onOpenSale={onOpenSale} onEdit={() => setEditId(current.id)} />
+        </div>
+      )}
+
+      {(creating || editId || copyFrom) && (
         <OrderModal
           orderId={editId}
-          onClose={() => { setCreating(false); setEditId(null) }}
-          onDone={() => { setCreating(false); setEditId(null); void load() }}
+          copyFromId={copyFrom}
+          onClose={() => { setCreating(false); setEditId(null); setCopyFrom(null) }}
+          onDone={() => { setCreating(false); setEditId(null); setCopyFrom(null); void load() }}
         />
       )}
       {convertId && (
@@ -242,36 +334,144 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
 
 /* ---------------------------------------------------------------- */
 
+/** Tanlangan buyurtmaning tarkibi — 1C dagi "Товары, услуги" paneli kabi */
+function OrderPreview({
+  row, onOpenSale, onEdit,
+}: { row: OrderRow; onOpenSale: (id: number) => void; onEdit: () => void }) {
+  const refs = useRefs()
+  const [items, setItems] = useState<{
+    id: number; product_id: number; qty: number; price: number; line_total: number
+    product?: { name: string; code: string | null; unit_id: number | null } | null
+  }[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    void supabase.from('ip_order_items')
+      .select('*, product:ip_products(name, code, unit_id)')
+      .eq('order_id', row.id).order('id')
+      .then(({ data }) => {
+        if (!alive) return
+        setItems((data as never) ?? [])
+        setLoading(false)
+      })
+    return () => { alive = false }
+  }, [row.id])
+
+  const unit = (uid: number | null | undefined) =>
+    refs.units.find((u) => u.id === uid)?.code ?? ''
+
+  return (
+    <Card pad={false}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2"
+           style={{ borderColor: 'var(--border)' }}>
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+          <FileText size={14} />Tovarlar · {row.doc_no}
+        </span>
+        <span className="flex gap-1.5">
+          {row.status === 'draft' && (
+            <Button size="sm" onClick={onEdit}>Tahrirlash</Button>
+          )}
+          {row.sale_id && (
+            <Button size="sm" variant="primary" onClick={() => onOpenSale(row.sale_id!)}>
+              Sotuv: {row.sale_doc_no}
+            </Button>
+          )}
+        </span>
+      </div>
+      <div className="p-4">
+        {loading ? <Loading /> : items.length === 0 ? (
+          <Empty title="Tovar kiritilmagan" />
+        ) : (
+          <DocTable minWidth={560}>
+            <thead>
+              <tr>
+                <DocTh w={34} align="center">№</DocTh>
+                <DocTh>Nomenklatura</DocTh>
+                <DocTh w={90} align="right">Miqdor</DocTh>
+                <DocTh w={60} align="center">Birlik</DocTh>
+                <DocTh w={120} align="right">Narx</DocTh>
+                <DocTh w={130} align="right">Summa</DocTh>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((i, n) => (
+                <DocTr key={i.id}>
+                  <DocTd align="center" tone="muted">{n + 1}</DocTd>
+                  <DocTd>
+                    {i.product?.name ?? `#${i.product_id}`}
+                    {i.product?.code && (
+                      <span className="ml-1.5 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                        {i.product.code}
+                      </span>
+                    )}
+                  </DocTd>
+                  <DocTd align="right" mono>{num(i.qty, 2)}</DocTd>
+                  <DocTd align="center" tone="muted">{unit(i.product?.unit_id)}</DocTd>
+                  <DocTd align="right" mono>{money(i.price, false)}</DocTd>
+                  <DocTd align="right" mono>{money(i.line_total, false)}</DocTd>
+                </DocTr>
+              ))}
+            </tbody>
+          </DocTable>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+/* ---------------------------------------------------------------- */
+
 type Line = { key: string; product_id: number | null; qty: string; price: string }
 const newLine = (): Line => ({
   key: Math.random().toString(36).slice(2), product_id: null, qty: '', price: '',
 })
 
 function OrderModal({
-  orderId, onClose, onDone,
-}: { orderId: number | null; onClose: () => void; onDone: () => void }) {
+  orderId, copyFromId, onClose, onDone,
+}: {
+  orderId: number | null
+  copyFromId: number | null
+  onClose: () => void
+  onDone: () => void
+}) {
   const refs = useRefs()
   const { customers } = useCustomers()
   const { products } = useProducts()
 
   const [customerId, setCustomerId] = useState<number | null>(null)
   const [warehouse, setWarehouse] = useState<number | null>(null)
+  const [contractId, setContractId] = useState<number | null>(null)
+  const [contracts, setContracts] = useState<{ id: number; number: string }[]>([])
   const [date, setDate] = useState(isoDate())
   const [valid, setValid] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState<Line[]>([newLine()])
   const [prices, setPrices] = useState<Map<number, number>>(new Map())
+  const [stock, setStock] = useState<Map<number, number>>(new Map())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const customer = customers.find((c) => c.id === customerId) ?? null
   const tierId = customer?.tier_id ?? refs.tiers.find((t) => t.is_default)?.id ?? null
+  const sourceId = orderId ?? copyFromId
 
   useEffect(() => {
     if (warehouse == null && refs.warehouses.length) {
       setWarehouse((refs.warehouses.find((w) => w.is_default) ?? refs.warehouses[0]).id)
     }
   }, [refs.warehouses, warehouse])
+
+  // Mijozning shartnomalari
+  useEffect(() => {
+    if (!customerId) { setContracts([]); return }
+    let alive = true
+    void supabase.from('ip_contracts').select('id, number')
+      .eq('customer_id', customerId).eq('is_active', true).order('signed_at', { ascending: false })
+      .then(({ data }) => { if (alive) setContracts((data as never) ?? []) })
+    return () => { alive = false }
+  }, [customerId])
 
   useEffect(() => {
     if (!tierId) return
@@ -289,19 +489,37 @@ function OrderModal({
   }, [tierId])
 
   useEffect(() => {
-    if (!orderId) return
+    if (!warehouse) return
+    let alive = true
+    void supabase.rpc('ip_stock_available_rows', { p_warehouse: warehouse })
+      .then(({ data }) => {
+        if (!alive) return
+        const m = new Map<number, number>()
+        for (const r of (data ?? []) as { product_id: number; qty_available: number }[]) {
+          m.set(r.product_id, Number(r.qty_available))
+        }
+        setStock(m)
+      })
+    return () => { alive = false }
+  }, [warehouse])
+
+  useEffect(() => {
+    if (!sourceId) return
     let alive = true
     void Promise.all([
-      supabase.from('ip_orders').select('*').eq('id', orderId).single(),
-      supabase.from('ip_order_items').select('*').eq('order_id', orderId).order('id'),
+      supabase.from('ip_orders').select('*').eq('id', sourceId).single(),
+      supabase.from('ip_order_items').select('*').eq('order_id', sourceId).order('id'),
     ]).then(([o, it]) => {
       if (!alive || !o.data) return
-      const ord = o.data as Order
+      const ord = o.data as Order & { contract_id: number | null }
       setCustomerId(ord.customer_id)
       setWarehouse(ord.warehouse_id)
-      setDate(ord.doc_date)
-      setValid(ord.valid_until ?? '')
-      setNote(ord.note ?? '')
+      setContractId(ord.contract_id)
+      if (orderId) {
+        setDate(ord.doc_date)
+        setValid(ord.valid_until ?? '')
+        setNote(ord.note ?? '')
+      }
       const items = (it.data as { product_id: number; qty: number; price: number }[]) ?? []
       setLines(items.length
         ? items.map((i) => ({
@@ -311,7 +529,7 @@ function OrderModal({
         : [newLine()])
     })
     return () => { alive = false }
-  }, [orderId])
+  }, [sourceId, orderId])
 
   const validLines = lines.filter((l) => l.product_id && Number(l.qty) > 0 && Number(l.price) > 0)
   const total = validLines.reduce((a, l) => a + Number(l.qty) * Number(l.price), 0)
@@ -331,13 +549,13 @@ function OrderModal({
       if (!id) {
         const { data, error } = await supabase.rpc('ip_create_order', {
           p_customer: customerId, p_warehouse: warehouse,
-          p_date: date, p_valid_until: valid || null,
+          p_date: date, p_valid_until: valid || null, p_contract: contractId,
         })
         if (error) throw new Error(error.message)
         id = (data as Order).id
       } else {
         const { error } = await supabase.from('ip_orders').update({
-          customer_id: customerId, warehouse_id: warehouse,
+          customer_id: customerId, warehouse_id: warehouse, contract_id: contractId,
           doc_date: date, valid_until: valid || null,
         } as never).eq('id', id)
         if (error) throw new Error(error.message)
@@ -366,8 +584,8 @@ function OrderModal({
 
   return (
     <Modal
-      open onClose={onClose} width={800}
-      title={orderId ? 'Buyurtmani tahrirlash' : 'Yangi buyurtma'}
+      open onClose={onClose} width={860}
+      title={orderId ? 'Buyurtmani tahrirlash' : copyFromId ? 'Buyurtma nusxasi' : 'Yangi buyurtma'}
       footer={<><Button onClick={onClose}>Bekor</Button>
         <Button variant="primary" loading={busy} onClick={save} disabled={validLines.length === 0}>
           Saqlash
@@ -382,6 +600,13 @@ function OrderModal({
               options={customers.map((c) => ({ value: c.id, label: c.name }))}
             />
           </Field>
+          <Field label="Shartnoma">
+            <Select
+              value={contractId ?? ''} onChange={(v) => setContractId(v ? Number(v) : null)}
+              placeholder="Asosiy shartnoma"
+              options={contracts.map((c) => ({ value: c.id, label: c.number }))}
+            />
+          </Field>
           <Field label="Ombor" required>
             <Select
               value={warehouse ?? ''} onChange={(v) => setWarehouse(v ? Number(v) : null)}
@@ -389,55 +614,72 @@ function OrderModal({
             />
           </Field>
           <Field label="Sana"><Input type="date" value={date} onChange={setDate} /></Field>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Amal qilish muddati" hint="Ixtiyoriy">
             <Input type="date" value={valid} onChange={setValid} />
           </Field>
         </div>
 
-        <Table minWidth={620}>
+        <DocTable minWidth={660}>
           <thead>
             <tr>
-              <Th>Tovar</Th>
-              <Th w={110} align="right">Miqdor</Th>
-              <Th w={140} align="right">Narx</Th>
-              <Th w={140} align="right">Summa</Th>
-              <Th w={44} />
+              <DocTh>Nomenklatura</DocTh>
+              <DocTh w={110} align="right">Miqdor</DocTh>
+              <DocTh w={130} align="right">Narx</DocTh>
+              <DocTh w={130} align="right">Summa</DocTh>
+              <DocTh w={40} />
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => (
-              <Tr key={l.key}>
-                <Td>
-                  <Select
-                    value={l.product_id ?? ''} onChange={(v) => v && pick(l.key, Number(v))}
-                    placeholder="Tovarni tanlang…"
-                    options={products.map((p) => ({
-                      value: p.id, label: p.code ? `${p.code} — ${p.name}` : p.name,
-                    }))}
-                  />
-                </Td>
-                <Td>
-                  <Input type="number" className="text-right" value={l.qty}
-                    onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, qty: v } : x))} />
-                </Td>
-                <Td>
-                  <Input type="number" className="text-right" value={l.price}
-                    onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, price: v } : x))} />
-                </Td>
-                <Td align="right" mono>
-                  {Number(l.qty) * Number(l.price) > 0
-                    ? money(Number(l.qty) * Number(l.price), false) : '—'}
-                </Td>
-                <Td align="center">
-                  <Button size="sm" variant="ghost"
-                    onClick={() => setLines((ls) => ls.length > 1 ? ls.filter((x) => x.key !== l.key) : ls)}>
-                    <Trash2 size={14} />
-                  </Button>
-                </Td>
-              </Tr>
-            ))}
+            {lines.map((l) => {
+              const free = l.product_id ? stock.get(l.product_id) ?? 0 : 0
+              const over = l.product_id != null && Number(l.qty) > free
+              return (
+                <DocTr key={l.key}>
+                  <DocTd>
+                    <Select
+                      value={l.product_id ?? ''} onChange={(v) => v && pick(l.key, Number(v))}
+                      placeholder="Tovarni tanlang…"
+                      options={products.map((p) => {
+                        const f = stock.get(p.id)
+                        const base = p.code ? `${p.code} — ${p.name}` : p.name
+                        return {
+                          value: p.id,
+                          label: f != null ? `${base}  ·  ${num(f, 2)} erkin` : `${base}  ·  yo'q`,
+                        }
+                      })}
+                    />
+                  </DocTd>
+                  <DocTd>
+                    <Input type="number" className="text-right" value={l.qty}
+                      onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, qty: v } : x))} />
+                    {over && (
+                      <div className="mt-0.5 text-right text-[11px]" style={{ color: 'var(--warn)' }}>
+                        erkin {num(free, 2)}
+                      </div>
+                    )}
+                  </DocTd>
+                  <DocTd>
+                    <Input type="number" className="text-right" value={l.price}
+                      onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, price: v } : x))} />
+                  </DocTd>
+                  <DocTd align="right" mono>
+                    {Number(l.qty) * Number(l.price) > 0
+                      ? money(Number(l.qty) * Number(l.price), false) : '—'}
+                  </DocTd>
+                  <DocTd align="center">
+                    <Button size="sm" variant="ghost"
+                      onClick={() => setLines((ls) => ls.length > 1 ? ls.filter((x) => x.key !== l.key) : ls)}>
+                      <XIcon size={13} />
+                    </Button>
+                  </DocTd>
+                </DocTr>
+              )
+            })}
           </tbody>
-        </Table>
+        </DocTable>
 
         <div className="flex items-center justify-between gap-3">
           <Button size="sm" onClick={() => setLines((ls) => [...ls, newLine()])}>
@@ -494,7 +736,7 @@ function ConvertModal({
           <p className="mt-1.5 text-[12px]" style={{ color: 'var(--text-3)' }}>
             {shipNow
               ? 'Sotuv topshirilganda tovar darhol ombordan yechiladi.'
-              : 'Tovar band bo\'lib turadi, keyin chiqariladi.'}
+              : "Tovar band bo'lib turadi, keyin chiqariladi."}
           </p>
         </div>
         {err && <ErrorBox>{err}</ErrorBox>}
