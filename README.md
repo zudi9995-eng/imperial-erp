@@ -10,6 +10,19 @@ Excel modelidagi raqamlar faqat boshlang'ich qiymat sifatida turibdi.
 
 ---
 
+## Qayerda yashaydi
+
+| | |
+|---|---|
+| **Sayt** | https://imperial-erp.netlify.app |
+| **Netlify panel** | https://app.netlify.com/projects/imperial-erp |
+| **GitHub** | https://github.com/zudi9995-eng/imperial-erp |
+| **Supabase** | loyiha `davra` — `lwsdirvewvkworitndrr` (ap-south-1, Mumbai) |
+
+Supabase'da **`ip_`** prefiksi ishlatiladi. `davra` — ko'p ilovali loyiha,
+boshqa ilovalar (`kin_`, `lb_`, `gm_`, `piskent_` …) bilan bir bazada yashaydi,
+lekin bir-biriga tegmaydi.
+
 ## Ishga tushirish
 
 ```bash
@@ -133,4 +146,4 @@ npx supabase db pull
 - [ ] AI Edge Function: kunlik brifing, tavsiyalar, savol-javob
 - [ ] Telegram bot: bildirishnoma, sotuv kiritish, tasdiqlash
 - [x] 1C eksportidan import (13 postavshik, 25 mijoz, 63 shartnoma, 25 tovar)
-- [ ] Netlify'ga deploy
+- [x] Netlify'ga deploy — https://imperial-erp.netlify.app
