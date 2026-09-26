@@ -522,3 +522,64 @@ export interface SupplierBalance {
   debt_base: number
   note: string | null
 }
+
+export interface Purchase {
+  id: number
+  doc_no: string | null
+  supplier_id: number | null
+  warehouse_id: number
+  doc_date: string
+  currency: string
+  fx_rate: number
+  total: number
+  total_base: number
+  paid_base: number
+  status: DocStatus
+  note: string | null
+  posted_at: string | null
+}
+
+export interface PurchaseItem {
+  id: number
+  purchase_id: number
+  product_id: number
+  qty: number
+  unit_cost: number
+  unit_cost_base: number
+  line_total_base: number
+  note: string | null
+}
+
+export interface CustomerStats {
+  customer_id: number
+  name: string
+  manager_id: string | null
+  tier_id: number | null
+  status: CustomerStatus
+  phone: string | null
+  credit_limit: number | null
+  opening_advance: number
+  first_sale_at: string | null
+  last_sale_at: string | null
+  sale_count: number
+  revenue_base: number
+  gross_profit_base: number
+  margin_pct: number | null
+  outstanding_base: number
+  net_base: number
+  days_since_sale: number | null
+  last_contact_at: string | null
+  activity_count: number
+}
+
+export interface Contract {
+  id: number
+  customer_id: number
+  number: string
+  signed_at: string | null
+  term_days: number | null
+  amount: number | null
+  kind: string
+  note: string | null
+  is_active: boolean
+}

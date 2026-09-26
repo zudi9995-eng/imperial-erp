@@ -108,7 +108,7 @@ avtomatik hisoblaydi — bonus bazasi va «faqat undirilgan puldan» sharti sozl
 
 ### Migratsiyalar
 
-`ip_001` … `ip_022` Supabase'ga qo'llangan (`supabase migration list` bilan
+`ip_001` … `ip_024` Supabase'ga qo'llangan (`supabase migration list` bilan
 ko'rinadi). Repoda hozircha faqat `001_core.sql` va 1C importi
 (`supabase/import-1c/`) bor — qolganini CLI ulangach tortib olish mumkin:
 
@@ -124,9 +124,9 @@ npx supabase db pull
 - [x] Sotuv: hujjatlar roʻyxati, sotuv kiritish, jonli marja, tasdiqlash oqimi
 - [x] Ombor: signallar, qoldiq, partiyalar, harakatlar, ko'chirish
 - [x] Debitor: qo'ng'iroq navbati, qarilik tahlili, to'lov taqsimlash, qo'ng'iroq jurnali
-- [ ] Mijozlar kartochkasi (aloqa tarixi, sotuv tarixi)
+- [x] Mijozlar: roʻyxat, ommaviy taqsimlash, toʻliq kartochka (sotuv, shartnoma, aloqa tarixi)
 - [ ] Ombor: inventarizatsiya
-- [ ] Xaridlar va postavshiklar
+- [x] Xaridlar: hujjat, valyuta kursi, partiya yaratish, postavshikka toʻlov
 - [x] Moliya: pozitsiya, P&L, naqd oqim, reja/byudjet, harajat, qarz, stsenariy
 - [x] Xodimlar: hisob ochish (Edge Function), KPI, davomat, taʼtil, oylik va bonus
 - [ ] CRM: voronka kanbani, uchrashuvlar, Google Calendar
