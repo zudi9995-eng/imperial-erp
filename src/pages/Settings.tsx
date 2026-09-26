@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
   Building2, Wallet, ShoppingCart, Package, Users, Sparkles, Send,
-  Database, Save, RotateCcw,
+  Database, Save, RotateCcw, Shield,
 } from 'lucide-react'
 import { useSettings } from '../lib/settings'
 import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
 import RefTable, { type Col } from '../components/RefTable'
+import RolesEditor from '../components/RolesEditor'
 import {
   Badge, Button, Card, CardTitle, ErrorBox, Field, InfoBox, Input, Loading,
   PageHeader, Select, Toggle,
@@ -23,7 +24,7 @@ const GROUP_META: Record<string, { label: string; icon: typeof Building2; hint: 
   telegram: { label: 'Telegram',      icon: Send,         hint: 'Qaysi bildirishnoma kimga va qachon boradi' },
 }
 
-type Tab = keyof typeof GROUP_META | 'spravochnik'
+type Tab = keyof typeof GROUP_META | 'spravochnik' | 'roles'
 
 export default function SettingsPage() {
   const { isOwner } = useAuth()
@@ -72,6 +73,17 @@ export default function SettingsPage() {
           )
         })}
         <button
+          onClick={() => setTab('roles')}
+          className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors"
+          style={{
+            background: tab === 'roles' ? 'var(--brand-soft)' : 'var(--surface)',
+            color: tab === 'roles' ? 'var(--brand)' : 'var(--text-2)',
+            borderColor: tab === 'roles' ? 'var(--brand)' : 'var(--border-2)',
+          }}
+        >
+          <Shield size={14} />Rollar va ruxsatlar
+        </button>
+        <button
           onClick={() => setTab('spravochnik')}
           className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors"
           style={{
@@ -84,8 +96,8 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {tab === 'spravochnik'
-        ? <Directories canWrite={isOwner} />
+      {tab === 'roles'       ? <RolesEditor />
+        : tab === 'spravochnik' ? <Directories canWrite={isOwner} />
         : <SettingGroup grp={tab} canWrite={isOwner} />}
     </div>
   )

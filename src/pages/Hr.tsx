@@ -6,7 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
-import { translateDbError } from '../lib/useRefs'
+import { invokeFn, translateDbError } from '../lib/useRefs'
 import type { Attendance, ManagerKpi, Payroll, Profile, Role } from '../lib/types'
 import {
   Badge, Button, Card, CardTitle, Empty, ErrorBox, Field, InfoBox, Input, Loading,
@@ -94,14 +94,12 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
       ? `${p.full_name} faolsizlantirilsinmi? U tizimga kira olmaydi.`
       : `${p.full_name} qayta faollashtirilsinmi?`)) return
     setErr('')
-    const { data, error } = await supabase.functions.invoke('ip-staff', {
-      body: { action: 'set_active', id: p.id, is_active: !p.is_active },
-    })
-    if (error || (data as { error?: string })?.error) {
-      setErr((data as { error?: string })?.error ?? error?.message ?? 'Xato')
-      return
+    try {
+      await invokeFn('ip-staff', { action: 'set_active', id: p.id, is_active: !p.is_active })
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Xato')
     }
-    await load()
   }
 
   async function updateField(id: string, patch: Partial<Profile>) {
@@ -266,11 +264,14 @@ function StaffTab({ isOwner, meId }: { isOwner: boolean; meId: string }) {
   )
 }
 
+interface RoleRow { id: number; name: string; base_role: Role; data_scope: string; is_active: boolean }
+
 function CreateStaffModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const { n } = useSettings()
+  const [roles, setRoles] = useState<RoleRow[]>([])
+  const [roleId, setRoleId] = useState<number | null>(null)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState<Role>('manager')
   const [phone, setPhone] = useState('')
   const [salary, setSalary] = useState(String(n('manager_salary_default', 0)))
   const [bonus, setBonus] = useState('')
@@ -279,29 +280,43 @@ function CreateStaffModal({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null)
 
   useEffect(() => {
-    setSalary(String(role === 'owner' ? n('owner_salary', 0) : n('manager_salary_default', 0)))
-  }, [role, n])
+    let alive = true
+    void supabase.from('ip_roles').select('id, name, base_role, data_scope, is_active')
+      .eq('is_active', true).order('sort_order')
+      .then(({ data }) => {
+        if (!alive) return
+        const rows = (data as RoleRow[]) ?? []
+        setRoles(rows)
+        setRoleId((cur) => cur ?? rows.find((r) => r.base_role === 'manager')?.id ?? rows[0]?.id ?? null)
+      })
+    return () => { alive = false }
+  }, [])
+
+  const selected = roles.find((r) => r.id === roleId)
+  const baseRole: Role = selected?.base_role ?? 'manager'
+
+  useEffect(() => {
+    setSalary(String(baseRole === 'owner' ? n('owner_salary', 0) : n('manager_salary_default', 0)))
+  }, [baseRole, n])
 
   async function save() {
     if (!email.includes('@')) { setErr("Email noto'g'ri"); return }
     if (!fullName.trim()) { setErr('Ism kiritilmagan'); return }
+    if (!roleId) { setErr('Rol tanlanmagan'); return }
     setBusy(true); setErr('')
-    const { data, error } = await supabase.functions.invoke('ip-staff', {
-      body: {
+    try {
+      const res = await invokeFn<{ email: string; password: string | null }>('ip-staff', {
         action: 'create',
-        email: email.trim(), full_name: fullName.trim(), role,
+        email: email.trim(), full_name: fullName.trim(),
+        role: baseRole, role_id: roleId,
         phone: phone.trim() || null,
         salary: Number(salary) || 0,
         bonus_pct: bonus === '' ? null : Number(bonus),
-      },
-    })
-    setBusy(false)
-    const payload = data as { error?: string; email?: string; password?: string | null }
-    if (error || payload?.error) {
-      setErr(payload?.error ?? error?.message ?? 'Xato')
-      return
-    }
-    setCreated({ email: payload.email!, password: payload.password ?? null })
+      })
+      setCreated({ email: res.email, password: res.password ?? null })
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Xato')
+    } finally { setBusy(false) }
   }
 
   if (created) {
@@ -349,10 +364,15 @@ function CreateStaffModal({ onClose, onDone }: { onClose: () => void; onDone: ()
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Rol" required>
+          <Field
+            label="Rol" required
+            hint={selected
+              ? (selected.data_scope === 'all' ? "Hamma mijoz va sotuvni ko'radi" : "Faqat o'z mijozlarini ko'radi")
+              : undefined}
+          >
             <Select
-              value={role} onChange={(v) => setRole(v as Role)}
-              options={(Object.keys(ROLE_LABEL) as Role[]).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+              value={roleId ?? ''} onChange={(v) => setRoleId(v ? Number(v) : null)}
+              options={roles.map((r) => ({ value: r.id, label: r.name }))}
             />
           </Field>
           <Field label="Telefon"><Input value={phone} onChange={setPhone} placeholder="+998 90 123 45 67" /></Field>
@@ -380,13 +400,14 @@ function ResetPasswordModal({ profile, onClose }: { profile: Profile; onClose: (
 
   async function reset() {
     setBusy(true); setErr('')
-    const { data, error } = await supabase.functions.invoke('ip-staff', {
-      body: { action: 'reset_password', id: profile.id },
-    })
-    setBusy(false)
-    const payload = data as { error?: string; password?: string | null }
-    if (error || payload?.error) { setErr(payload?.error ?? error?.message ?? 'Xato'); return }
-    setPw(payload.password ?? null)
+    try {
+      const res = await invokeFn<{ password: string | null }>('ip-staff', {
+        action: 'reset_password', id: profile.id,
+      })
+      setPw(res.password ?? null)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Xato')
+    } finally { setBusy(false) }
   }
 
   return (

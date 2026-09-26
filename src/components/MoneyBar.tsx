@@ -14,9 +14,9 @@ import { Button, Spinner } from './ui'
  * Hamma xodim — valyuta kursi (manba va sana bilan).
  */
 export default function MoneyBar() {
-  const { isOwner, isAccountant } = useAuth()
+  const { can } = useAuth()
   const { n } = useSettings()
-  const canSeeMoney = isOwner || isAccountant
+  const canSeeMoney = can('cash.view')
 
   const [cash, setCash] = useState<CashBalance[]>([])
   const [pos, setPos] = useState<Position | null>(null)

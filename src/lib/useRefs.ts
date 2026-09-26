@@ -129,3 +129,33 @@ export function translateDbError(msg: string): string {
   if (m.includes('failed to fetch') || m.includes('networkerror')) return "Internet aloqasi yo'q"
   return msg
 }
+
+/**
+ * Edge Function chaqiruvi.
+ * supabase.functions.invoke 2xx bo'lmasa `data` ni null qiladi va
+ * "non-2xx status code" degan umumiy xabar beradi — haqiqiy sabab
+ * javob tanasida qoladi. Shuni ochib beramiz.
+ */
+export async function invokeFn<T = unknown>(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body })
+
+  if (error) {
+    const ctx = (error as { context?: unknown }).context
+    if (ctx && typeof (ctx as Response).json === 'function') {
+      try {
+        const parsed = await (ctx as Response).json() as { error?: string }
+        if (parsed?.error) throw new Error(String(parsed.error))
+      } catch (e) {
+        if (e instanceof Error && e.message && !/json/i.test(e.message)) throw e
+      }
+    }
+    throw new Error(translateDbError(error.message))
+  }
+
+  const payload = data as { error?: string } | null
+  if (payload?.error) throw new Error(payload.error)
+  return data as T
+}

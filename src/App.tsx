@@ -22,7 +22,7 @@ const Approvals    = lazy(() => import('./pages/Approvals'))
 const Ai           = lazy(() => import('./pages/Ai'))
 
 export default function App() {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, can } = useAuth()
 
   if (loading) {
     return (
@@ -50,17 +50,17 @@ export default function App() {
           <Route path="/products"    element={<Products />} />
           <Route
             path="/purchases"
-            element={<Guard allow={profile.role !== 'manager'}><Purchases /></Guard>}
+            element={<Guard allow={can('view.purchases')}><Purchases /></Guard>}
           />
           <Route
             path="/finance"
-            element={<Guard allow={profile.role !== 'manager'}><Finance /></Guard>}
+            element={<Guard allow={can('view.finance')}><Finance /></Guard>}
           />
           <Route path="/hr"        element={<Hr />} />
           <Route path="/approvals" element={<Approvals />} />
           <Route
             path="/settings"
-            element={<Guard allow={profile.role === 'owner'}><SettingsPage /></Guard>}
+            element={<Guard allow={can('view.settings')}><SettingsPage /></Guard>}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

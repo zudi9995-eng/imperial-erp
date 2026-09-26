@@ -15,33 +15,34 @@ interface NavItem {
   to: string
   label: string
   icon: typeof LayoutDashboard
-  roles?: ('owner' | 'manager' | 'accountant')[]
+  /** Shu ruxsat bo'lmasa menyuda ko'rinmaydi */
+  perm: string
   group: string
 }
 
 const NAV: NavItem[] = [
-  { to: '/',            label: 'Kunlik panel',  icon: LayoutDashboard, group: 'Asosiy' },
-  { to: '/ai',          label: 'AI tahlil',     icon: Sparkles,        group: 'Asosiy' },
-  { to: '/tasks',       label: 'Vazifalar',     icon: CheckSquare,     group: 'Asosiy' },
+  { to: '/',            label: 'Kunlik panel',  icon: LayoutDashboard, perm: 'view.dashboard',   group: 'Asosiy' },
+  { to: '/ai',          label: 'AI tahlil',     icon: Sparkles,        perm: 'view.ai',          group: 'Asosiy' },
+  { to: '/tasks',       label: 'Vazifalar',     icon: CheckSquare,     perm: 'view.tasks',       group: 'Asosiy' },
 
-  { to: '/sales',       label: 'Sotuv',         icon: ShoppingCart,    group: 'Sotuv' },
-  { to: '/customers',   label: 'Mijozlar',      icon: Users,           group: 'Sotuv' },
-  { to: '/deals',       label: 'Voronka',       icon: Handshake,       group: 'Sotuv' },
-  { to: '/meetings',    label: 'Uchrashuvlar',  icon: CalendarDays,    group: 'Sotuv' },
-  { to: '/receivables', label: 'Debitor',       icon: Wallet,          group: 'Sotuv' },
+  { to: '/sales',       label: 'Sotuv',         icon: ShoppingCart,    perm: 'view.sales',       group: 'Sotuv' },
+  { to: '/customers',   label: 'Mijozlar',      icon: Users,           perm: 'view.customers',   group: 'Sotuv' },
+  { to: '/deals',       label: 'Voronka',       icon: Handshake,       perm: 'view.deals',       group: 'Sotuv' },
+  { to: '/meetings',    label: 'Uchrashuvlar',  icon: CalendarDays,    perm: 'view.meetings',    group: 'Sotuv' },
+  { to: '/receivables', label: 'Debitor',       icon: Wallet,          perm: 'view.receivables', group: 'Sotuv' },
 
-  { to: '/stock',       label: 'Ombor',         icon: Package,         group: 'Ombor' },
-  { to: '/purchases',   label: 'Xaridlar',      icon: Truck,           group: 'Ombor', roles: ['owner', 'accountant'] },
-  { to: '/products',    label: 'Tovar va narx', icon: BarChart3,       group: 'Ombor' },
+  { to: '/stock',       label: 'Ombor',         icon: Package,         perm: 'view.stock',       group: 'Ombor' },
+  { to: '/purchases',   label: 'Xaridlar',      icon: Truck,           perm: 'view.purchases',   group: 'Ombor' },
+  { to: '/products',    label: 'Tovar va narx', icon: BarChart3,       perm: 'view.products',    group: 'Ombor' },
 
-  { to: '/finance',     label: 'Moliya va P&L', icon: Building2,       group: 'Boshqaruv', roles: ['owner', 'accountant'] },
-  { to: '/hr',          label: 'Xodimlar',      icon: UserCog,         group: 'Boshqaruv' },
-  { to: '/approvals',   label: 'Tasdiqlash',    icon: ShieldCheck,     group: 'Boshqaruv' },
-  { to: '/settings',    label: 'Sozlamalar',    icon: SettingsIcon,    group: 'Boshqaruv', roles: ['owner'] },
+  { to: '/finance',     label: 'Moliya va P&L', icon: Building2,       perm: 'view.finance',     group: 'Boshqaruv' },
+  { to: '/hr',          label: 'Xodimlar',      icon: UserCog,         perm: 'view.hr',          group: 'Boshqaruv' },
+  { to: '/approvals',   label: 'Tasdiqlash',    icon: ShieldCheck,     perm: 'view.approvals',   group: 'Boshqaruv' },
+  { to: '/settings',    label: 'Sozlamalar',    icon: SettingsIcon,    perm: 'view.settings',    group: 'Boshqaruv' },
 ]
 
 export default function Layout() {
-  const { profile, signOut, isOwner } = useAuth()
+  const { profile, signOut, can, roleName } = useAuth()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(
@@ -67,7 +68,7 @@ export default function Layout() {
       const [n, a] = await Promise.all([
         supabase.from('ip_notifications').select('id', { count: 'exact', head: true })
           .eq('is_read', false),
-        isOwner
+        can('view.approvals')
           ? supabase.from('ip_approvals').select('id', { count: 'exact', head: true })
               .eq('status', 'pending')
           : Promise.resolve({ count: 0 } as { count: number | null }),
@@ -79,9 +80,9 @@ export default function Layout() {
     void load()
     const t = setInterval(load, 60_000)
     return () => { alive = false; clearInterval(t) }
-  }, [profile, isOwner, loc.pathname])
+  }, [profile, can, loc.pathname])
 
-  const visible = NAV.filter((n) => !n.roles || (profile && n.roles.includes(profile.role)))
+  const visible = NAV.filter((n) => can(n.perm))
   const groups = [...new Set(visible.map((n) => n.group))]
 
   return (
@@ -147,8 +148,8 @@ export default function Layout() {
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-medium">{profile?.full_name}</div>
               <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                {profile?.role === 'owner' ? "Ta'sischi"
-                  : profile?.role === 'accountant' ? 'Buxgalter' : 'Sotuv menejeri'}
+                {roleName ?? (profile?.role === 'owner' ? "Ta'sischi"
+                  : profile?.role === 'accountant' ? 'Buxgalter' : 'Sotuv menejeri')}
               </div>
             </div>
           </div>

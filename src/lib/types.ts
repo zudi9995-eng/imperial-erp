@@ -19,6 +19,7 @@ export interface Profile {
   tg_linked_at: string | null
   avatar_url: string | null
   note: string | null
+  role_id: number | null
 }
 
 export type SettingType =

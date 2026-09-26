@@ -17,6 +17,12 @@ interface AuthState {
   isOwner: boolean
   isManager: boolean
   isAccountant: boolean
+  /** Ruxsat bormi. Ta'sischida har doim true. */
+  can: (code: string) => boolean
+  /** 'all' — hamma ma'lumot, 'own' — faqat o'ziniki */
+  scope: 'all' | 'own'
+  permissions: Set<string>
+  roleName: string | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   bootstrapOwner: (fullName: string) => Promise<void>
@@ -29,6 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [noOwnerYet, setNoOwnerYet] = useState(false)
+  const [perms, setPerms] = useState<Set<string>>(new Set())
+  const [scope, setScope] = useState<'all' | 'own'>('own')
+  const [roleName, setRoleName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function loadProfile(userId: string) {
@@ -43,6 +52,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Profilni o\'qishda xato:', error.message)
     }
     setProfile((data as Profile | null) ?? null)
+
+    if (data) {
+      const prof = data as Profile
+      if (prof.role === 'owner') {
+        // Ta'sischi — hamma ruxsat
+        const { data: all } = await supabase.from('ip_permissions').select('code')
+        setPerms(new Set((all ?? []).map((p: { code: string }) => p.code)))
+        setScope('all')
+        setRoleName("Ta'sischi")
+      } else if (prof.role_id) {
+        const [rp, rl] = await Promise.all([
+          supabase.from('ip_role_permissions').select('permission_code').eq('role_id', prof.role_id),
+          supabase.from('ip_roles').select('name, data_scope').eq('id', prof.role_id).maybeSingle(),
+        ])
+        setPerms(new Set((rp.data ?? []).map((r: { permission_code: string }) => r.permission_code)))
+        const role = rl.data as { name: string; data_scope: 'all' | 'own' } | null
+        setScope(role?.data_scope ?? 'own')
+        setRoleName(role?.name ?? null)
+      } else {
+        setPerms(new Set())
+        setScope(prof.role === 'manager' ? 'own' : 'all')
+        setRoleName(null)
+      }
+    } else {
+      setPerms(new Set())
+      setScope('own')
+      setRoleName(null)
+    }
 
     if (!data) {
       // Hech kim yo'qmi? Bo'lsa — birinchi kirish, o'zini ta'sischi qiladi
@@ -93,6 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isOwner: profile?.role === 'owner',
     isManager: profile?.role === 'manager',
     isAccountant: profile?.role === 'accountant',
+    permissions: perms,
+    scope,
+    roleName,
+    can: (code: string) => profile?.role === 'owner' || perms.has(code),
 
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -113,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async refreshProfile() {
       if (session?.user) await loadProfile(session.user.id)
     },
-  }), [session, profile, noOwnerYet, loading])
+  }), [session, profile, noOwnerYet, loading, perms, scope, roleName])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
