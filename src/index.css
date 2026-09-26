@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+:root {
+  --bg:          #f6f7f9;
+  --surface:     #ffffff;
+  --surface-2:   #f1f3f6;
+  --border:      #e3e6eb;
+  --border-2:    #cfd4dc;
+  --text:        #12161c;
+  --text-2:      #5a6472;
+  --text-3:      #8b95a4;
+
+  --brand:       #1f4f8f;
+  --brand-fg:    #ffffff;
+  --brand-soft:  #e8effa;
+
+  --ok:          #1a7f4f;
+  --ok-soft:     #e4f5ec;
+  --warn:        #a86a00;
+  --warn-soft:   #fdf2dc;
+  --danger:      #b32020;
+  --danger-soft: #fdeaea;
+  --info:        #1f5f8f;
+  --info-soft:   #e6f1f9;
+
+  --radius:      10px;
+  --shadow-sm:   0 1px 2px rgba(18, 22, 28, .06);
+  --shadow:      0 2px 8px rgba(18, 22, 28, .08);
+  --shadow-lg:   0 12px 32px rgba(18, 22, 28, .14);
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    --bg:          #0e1116;
+    --surface:     #161a21;
+    --surface-2:   #1d222b;
+    --border:      #262c36;
+    --border-2:    #363e4a;
+    --text:        #e8ebf0;
+    --text-2:      #a2acbb;
+    --text-3:      #6f7988;
+
+    --brand:       #4a8fe0;
+    --brand-fg:    #0b1219;
+    --brand-soft:  #16283c;
+
+    --ok:          #4cc98a;
+    --ok-soft:     #12281e;
+    --warn:        #e0a94a;
+    --warn-soft:   #2b2214;
+    --danger:      #f07272;
+    --danger-soft: #2e1717;
+    --info:        #5aaee0;
+    --info-soft:   #13242f;
+
+    --shadow-sm:   0 1px 2px rgba(0, 0, 0, .4);
+    --shadow:      0 2px 10px rgba(0, 0, 0, .45);
+    --shadow-lg:   0 14px 36px rgba(0, 0, 0, .6);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg:          #0e1116;
+  --surface:     #161a21;
+  --surface-2:   #1d222b;
+  --border:      #262c36;
+  --border-2:    #363e4a;
+  --text:        #e8ebf0;
+  --text-2:      #a2acbb;
+  --text-3:      #6f7988;
+
+  --brand:       #4a8fe0;
+  --brand-fg:    #0b1219;
+  --brand-soft:  #16283c;
+
+  --ok:          #4cc98a;
+  --ok-soft:     #12281e;
+  --warn:        #e0a94a;
+  --warn-soft:   #2b2214;
+  --danger:      #f07272;
+  --danger-soft: #2e1717;
+  --info:        #5aaee0;
+  --info-soft:   #13242f;
+
+  --shadow-sm:   0 1px 2px rgba(0, 0, 0, .4);
+  --shadow:      0 2px 10px rgba(0, 0, 0, .45);
+  --shadow-lg:   0 14px 36px rgba(0, 0, 0, .6);
+}
+
+* { border-color: var(--border); }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--brand-soft); color: var(--text); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* Raqamlar jadvalda tekis turishi uchun */
+.tnum { font-variant-numeric: tabular-nums; }
+
+input, select, textarea, button { font: inherit; color: inherit; }
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(var(--icon-invert, 0));
+}
+:root[data-theme='dark'] { --icon-invert: 1; }
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) { --icon-invert: 1; }
+}
+
+@keyframes ip-spin { to { transform: rotate(360deg); } }
+@keyframes ip-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.ip-fade { animation: ip-fade .18s ease-out; }

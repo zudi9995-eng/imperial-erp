@@ -1,0 +1,82 @@
+import { Suspense, lazy } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuth } from './lib/auth'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import { Empty, Loading } from './components/ui'
+
+const Dashboard    = lazy(() => import('./pages/Dashboard'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
+const Sales        = lazy(() => import('./pages/Sales'))
+const Customers    = lazy(() => import('./pages/Customers'))
+const Products     = lazy(() => import('./pages/Products'))
+const Stock        = lazy(() => import('./pages/Stock'))
+const Purchases    = lazy(() => import('./pages/Purchases'))
+const Receivables  = lazy(() => import('./pages/Receivables'))
+const Deals        = lazy(() => import('./pages/Deals'))
+const Meetings     = lazy(() => import('./pages/Meetings'))
+const Tasks        = lazy(() => import('./pages/Tasks'))
+const Finance      = lazy(() => import('./pages/Finance'))
+const Hr           = lazy(() => import('./pages/Hr'))
+const Approvals    = lazy(() => import('./pages/Approvals'))
+const Ai           = lazy(() => import('./pages/Ai'))
+
+export default function App() {
+  const { session, profile, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <Loading label="Tekshirilmoqda…" />
+      </div>
+    )
+  }
+
+  if (!session || !profile) return <Login />
+
+  return (
+    <Suspense fallback={<div className="p-8"><Loading /></div>}>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/"            element={<Dashboard />} />
+          <Route path="/ai"          element={<Ai />} />
+          <Route path="/tasks"       element={<Tasks />} />
+          <Route path="/sales"       element={<Sales />} />
+          <Route path="/customers"   element={<Customers />} />
+          <Route path="/deals"       element={<Deals />} />
+          <Route path="/meetings"    element={<Meetings />} />
+          <Route path="/receivables" element={<Receivables />} />
+          <Route path="/stock"       element={<Stock />} />
+          <Route path="/products"    element={<Products />} />
+          <Route
+            path="/purchases"
+            element={<Guard allow={profile.role !== 'manager'}><Purchases /></Guard>}
+          />
+          <Route
+            path="/finance"
+            element={<Guard allow={profile.role !== 'manager'}><Finance /></Guard>}
+          />
+          <Route path="/hr"        element={<Hr />} />
+          <Route path="/approvals" element={<Approvals />} />
+          <Route
+            path="/settings"
+            element={<Guard allow={profile.role === 'owner'}><SettingsPage /></Guard>}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  )
+}
+
+function Guard({ allow, children }: { allow: boolean; children: React.ReactNode }) {
+  if (!allow) {
+    return (
+      <Empty
+        title="Bu bo'limga ruxsatingiz yo'q"
+        hint="Agar bu xato bo'lsa, ta'sischidan rolingizni tekshirishni so'rang."
+      />
+    )
+  }
+  return <>{children}</>
+}
