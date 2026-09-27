@@ -1,6 +1,7 @@
 import { useWindows } from '../lib/windows'
 import OrderForm from './OrderForm'
 import SaleDetail from './SaleDetail'
+import SaleForm from './SaleForm'
 
 /**
  * Ochiq hujjat oynalari. Hammasi bir vaqtda DOM da turadi — faqat
@@ -30,6 +31,18 @@ export default function DocWindows() {
             <SaleDetail
               id={w.params.id as number}
               onBack={() => { signal('sales'); close(w.key) }}
+            />
+          )}
+          {w.kind === 'sale-edit' && (
+            <SaleForm
+              winKey={w.key}
+              saleId={(w.params.saleId as number | null) ?? null}
+              presetCustomerId={(w.params.customerId as number | null) ?? null}
+              onClose={() => close(w.key)}
+              onSaved={() => signal('sales')}
+              onPosted={(sid) => open({
+                kind: 'sale', key: `sale:${sid}`, title: 'Sotuv', params: { id: sid },
+              })}
             />
           )}
         </div>

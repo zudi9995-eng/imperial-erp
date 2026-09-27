@@ -14,7 +14,7 @@ import {
  * yo'qoladi. Saqlanmagan hujjat bo'lsa, yopishdan oldin so'raladi.
  */
 
-export type WinKind = 'order' | 'sale'
+export type WinKind = 'order' | 'sale' | 'sale-edit'
 
 export interface DocWindow {
   /** Bir xil hujjat ikki marta ochilmasligi uchun barqaror kalit */
