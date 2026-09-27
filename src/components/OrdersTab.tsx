@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Plus, Copy, Check, Ban, ArrowRightLeft, Search, Filter,
+  Plus, Copy, Check, Ban, FolderOpen, Search, Filter,
   RefreshCw, X as XIcon, FileText,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { useCustomers, useProducts, useRefs, translateDbError } from '../lib/useRefs'
-import type { Order } from '../lib/types'
-import {
-  Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
-  Select, Textarea, Toggle,
-} from './ui'
+import { useRefs, translateDbError } from '../lib/useRefs'
+import { Button, Card, Empty, ErrorBox, Field, Loading, Select } from './ui'
 import {
   DocTable, DocTd, DocTh, DocToolbar, DocTr, MarkLegend, StatusDot, type Mark,
 } from './docList'
-import { dateShort, isoDate, money, num } from '../lib/format'
+import OrderForm from './OrderForm'
+import { dateShort, money, num } from '../lib/format'
 
 interface OrderRow {
   id: number
@@ -65,7 +62,6 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
   const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [copyFrom, setCopyFrom] = useState<number | null>(null)
-  const [convertId, setConvertId] = useState<number | null>(null)
   const [showFilter, setShowFilter] = useState(false)
 
   const load = useCallback(async () => {
@@ -101,6 +97,21 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
     await load()
   }
 
+  // Hujjat ochilganda ro'yxat o'rnini forma egallaydi — 1C dagidek
+  if (creating || editId || copyFrom) {
+    return (
+      <OrderForm
+        orderId={editId}
+        copyFromId={copyFrom}
+        onClose={() => { setCreating(false); setEditId(null); setCopyFrom(null) }}
+        onSaved={() => { void load() }}
+        onOpenSale={(sid) => {
+          setCreating(false); setEditId(null); setCopyFrom(null); onOpenSale(sid)
+        }}
+      />
+    )
+  }
+
   if (loading) return <Loading />
 
   const total = filtered.reduce((a, r) => a + Number(r.total), 0)
@@ -118,6 +129,12 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
               </Button>
             )}
             <Button
+              size="sm" disabled={!current} title="Ochish (yoki qatorni ikki marta bosing)"
+              onClick={() => current && setEditId(current.id)}
+            >
+              <FolderOpen size={14} />Ochish
+            </Button>
+            <Button
               size="sm" disabled={!current} title="Nusxasini yaratish"
               onClick={() => current && setCopyFrom(current.id)}
             >
@@ -130,13 +147,6 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
               onClick={() => current && void act(current.id, 'confirm')}
             >
               <Check size={14} />Tasdiqlash
-            </Button>
-            <Button
-              size="sm" disabled={!current || current.status !== 'confirmed'}
-              title="Sotuvga aylantirish"
-              onClick={() => current && setConvertId(current.id)}
-            >
-              <ArrowRightLeft size={14} />Sotuv yaratish
             </Button>
             <Button
               size="sm" disabled={!current || !['draft', 'confirmed'].includes(current.status)}
@@ -241,10 +251,7 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
                         selected={sel === r.id}
                         attention={att}
                         onClick={() => setSel(sel === r.id ? null : r.id)}
-                        onDoubleClick={() => {
-                          if (r.sale_id) onOpenSale(r.sale_id)
-                          else if (r.status === 'draft') { setSel(r.id); setEditId(r.id) }
-                        }}
+                        onDoubleClick={() => { setSel(r.id); setEditId(r.id) }}
                       >
                         <DocTd align="center">
                           <StatusDot
@@ -311,22 +318,6 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
         <div className="mt-3">
           <OrderPreview row={current} onOpenSale={onOpenSale} onEdit={() => setEditId(current.id)} />
         </div>
-      )}
-
-      {(creating || editId || copyFrom) && (
-        <OrderModal
-          orderId={editId}
-          copyFromId={copyFrom}
-          onClose={() => { setCreating(false); setEditId(null); setCopyFrom(null) }}
-          onDone={() => { setCreating(false); setEditId(null); setCopyFrom(null); void load() }}
-        />
-      )}
-      {convertId && (
-        <ConvertModal
-          orderId={convertId}
-          onClose={() => setConvertId(null)}
-          onDone={(saleId) => { setConvertId(null); void load(); onOpenSale(saleId) }}
-        />
       )}
     </div>
   )
@@ -418,329 +409,5 @@ function OrderPreview({
         )}
       </div>
     </Card>
-  )
-}
-
-/* ---------------------------------------------------------------- */
-
-type Line = { key: string; product_id: number | null; qty: string; price: string }
-const newLine = (): Line => ({
-  key: Math.random().toString(36).slice(2), product_id: null, qty: '', price: '',
-})
-
-function OrderModal({
-  orderId, copyFromId, onClose, onDone,
-}: {
-  orderId: number | null
-  copyFromId: number | null
-  onClose: () => void
-  onDone: () => void
-}) {
-  const refs = useRefs()
-  const { customers } = useCustomers()
-  const { products } = useProducts()
-
-  const [customerId, setCustomerId] = useState<number | null>(null)
-  const [warehouse, setWarehouse] = useState<number | null>(null)
-  const [contractId, setContractId] = useState<number | null>(null)
-  const [contracts, setContracts] = useState<{ id: number; number: string }[]>([])
-  const [date, setDate] = useState(isoDate())
-  const [valid, setValid] = useState('')
-  const [note, setNote] = useState('')
-  const [lines, setLines] = useState<Line[]>([newLine()])
-  const [prices, setPrices] = useState<Map<number, number>>(new Map())
-  const [stock, setStock] = useState<Map<number, number>>(new Map())
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  const customer = customers.find((c) => c.id === customerId) ?? null
-  const tierId = customer?.tier_id ?? refs.tiers.find((t) => t.is_default)?.id ?? null
-  const sourceId = orderId ?? copyFromId
-
-  useEffect(() => {
-    if (warehouse == null && refs.warehouses.length) {
-      setWarehouse((refs.warehouses.find((w) => w.is_default) ?? refs.warehouses[0]).id)
-    }
-  }, [refs.warehouses, warehouse])
-
-  // Mijozning shartnomalari
-  useEffect(() => {
-    if (!customerId) { setContracts([]); return }
-    let alive = true
-    void supabase.from('ip_contracts').select('id, number')
-      .eq('customer_id', customerId).eq('is_active', true).order('signed_at', { ascending: false })
-      .then(({ data }) => { if (alive) setContracts((data as never) ?? []) })
-    return () => { alive = false }
-  }, [customerId])
-
-  useEffect(() => {
-    if (!tierId) return
-    let alive = true
-    void supabase.from('ip_current_prices').select('product_id, price').eq('tier_id', tierId)
-      .then(({ data }) => {
-        if (!alive) return
-        const m = new Map<number, number>()
-        for (const r of (data ?? []) as { product_id: number; price: number }[]) {
-          m.set(r.product_id, Number(r.price))
-        }
-        setPrices(m)
-      })
-    return () => { alive = false }
-  }, [tierId])
-
-  useEffect(() => {
-    if (!warehouse) return
-    let alive = true
-    void supabase.rpc('ip_stock_available_rows', { p_warehouse: warehouse })
-      .then(({ data }) => {
-        if (!alive) return
-        const m = new Map<number, number>()
-        for (const r of (data ?? []) as { product_id: number; qty_available: number }[]) {
-          m.set(r.product_id, Number(r.qty_available))
-        }
-        setStock(m)
-      })
-    return () => { alive = false }
-  }, [warehouse])
-
-  useEffect(() => {
-    if (!sourceId) return
-    let alive = true
-    void Promise.all([
-      supabase.from('ip_orders').select('*').eq('id', sourceId).single(),
-      supabase.from('ip_order_items').select('*').eq('order_id', sourceId).order('id'),
-    ]).then(([o, it]) => {
-      if (!alive || !o.data) return
-      const ord = o.data as Order & { contract_id: number | null }
-      setCustomerId(ord.customer_id)
-      setWarehouse(ord.warehouse_id)
-      setContractId(ord.contract_id)
-      if (orderId) {
-        setDate(ord.doc_date)
-        setValid(ord.valid_until ?? '')
-        setNote(ord.note ?? '')
-      }
-      const items = (it.data as { product_id: number; qty: number; price: number }[]) ?? []
-      setLines(items.length
-        ? items.map((i) => ({
-            key: Math.random().toString(36).slice(2),
-            product_id: i.product_id, qty: String(i.qty), price: String(i.price),
-          }))
-        : [newLine()])
-    })
-    return () => { alive = false }
-  }, [sourceId, orderId])
-
-  const validLines = lines.filter((l) => l.product_id && Number(l.qty) > 0 && Number(l.price) > 0)
-  const total = validLines.reduce((a, l) => a + Number(l.qty) * Number(l.price), 0)
-
-  function pick(key: string, pid: number) {
-    const p = prices.get(pid) ?? 0
-    setLines((ls) => ls.map((x) =>
-      x.key === key ? { ...x, product_id: pid, price: p ? String(p) : x.price } : x))
-  }
-
-  async function save() {
-    if (!customerId || !warehouse) { setErr('Mijoz va ombor tanlanmagan'); return }
-    if (validLines.length === 0) { setErr('Tovar kiritilmagan'); return }
-    setBusy(true); setErr('')
-    try {
-      let id = orderId
-      if (!id) {
-        const { data, error } = await supabase.rpc('ip_create_order', {
-          p_customer: customerId, p_warehouse: warehouse,
-          p_date: date, p_valid_until: valid || null, p_contract: contractId,
-        })
-        if (error) throw new Error(error.message)
-        id = (data as Order).id
-      } else {
-        const { error } = await supabase.from('ip_orders').update({
-          customer_id: customerId, warehouse_id: warehouse, contract_id: contractId,
-          doc_date: date, valid_until: valid || null,
-        } as never).eq('id', id)
-        if (error) throw new Error(error.message)
-        await supabase.from('ip_order_items').delete().eq('order_id', id)
-      }
-
-      if (note.trim()) {
-        await supabase.from('ip_orders').update({ note: note.trim() } as never).eq('id', id)
-      }
-
-      const { error: e2 } = await supabase.from('ip_order_items').insert(
-        validLines.map((l) => ({
-          order_id: id, product_id: l.product_id,
-          qty: Number(l.qty), price: Number(l.price),
-        })) as never)
-      if (e2) throw new Error(e2.message)
-
-      await supabase.rpc('ip_recalc_order', { p_order_id: id })
-      onDone()
-    } catch (e) {
-      setErr(translateDbError(e instanceof Error ? e.message : 'Xato'))
-    } finally { setBusy(false) }
-  }
-
-  if (refs.loading) return <Modal open onClose={onClose} title="Buyurtma"><Loading /></Modal>
-
-  return (
-    <Modal
-      open onClose={onClose} width={860}
-      title={orderId ? 'Buyurtmani tahrirlash' : copyFromId ? 'Buyurtma nusxasi' : 'Yangi buyurtma'}
-      footer={<><Button onClick={onClose}>Bekor</Button>
-        <Button variant="primary" loading={busy} onClick={save} disabled={validLines.length === 0}>
-          Saqlash
-        </Button></>}
-    >
-      <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Mijoz" required>
-            <Select
-              value={customerId ?? ''} onChange={(v) => setCustomerId(v ? Number(v) : null)}
-              placeholder="Tanlang…"
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </Field>
-          <Field label="Shartnoma">
-            <Select
-              value={contractId ?? ''} onChange={(v) => setContractId(v ? Number(v) : null)}
-              placeholder="Asosiy shartnoma"
-              options={contracts.map((c) => ({ value: c.id, label: c.number }))}
-            />
-          </Field>
-          <Field label="Ombor" required>
-            <Select
-              value={warehouse ?? ''} onChange={(v) => setWarehouse(v ? Number(v) : null)}
-              options={refs.warehouses.map((w) => ({ value: w.id, label: w.name }))}
-            />
-          </Field>
-          <Field label="Sana"><Input type="date" value={date} onChange={setDate} /></Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Amal qilish muddati" hint="Ixtiyoriy">
-            <Input type="date" value={valid} onChange={setValid} />
-          </Field>
-        </div>
-
-        <DocTable minWidth={660}>
-          <thead>
-            <tr>
-              <DocTh>Nomenklatura</DocTh>
-              <DocTh w={110} align="right">Miqdor</DocTh>
-              <DocTh w={130} align="right">Narx</DocTh>
-              <DocTh w={130} align="right">Summa</DocTh>
-              <DocTh w={40} />
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((l) => {
-              const free = l.product_id ? stock.get(l.product_id) ?? 0 : 0
-              const over = l.product_id != null && Number(l.qty) > free
-              return (
-                <DocTr key={l.key}>
-                  <DocTd>
-                    <Select
-                      value={l.product_id ?? ''} onChange={(v) => v && pick(l.key, Number(v))}
-                      placeholder="Tovarni tanlang…"
-                      options={products.map((p) => {
-                        const f = stock.get(p.id)
-                        const base = p.code ? `${p.code} — ${p.name}` : p.name
-                        return {
-                          value: p.id,
-                          label: f != null ? `${base}  ·  ${num(f, 2)} erkin` : `${base}  ·  yo'q`,
-                        }
-                      })}
-                    />
-                  </DocTd>
-                  <DocTd>
-                    <Input type="number" className="text-right" value={l.qty}
-                      onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, qty: v } : x))} />
-                    {over && (
-                      <div className="mt-0.5 text-right text-[11px]" style={{ color: 'var(--warn)' }}>
-                        erkin {num(free, 2)}
-                      </div>
-                    )}
-                  </DocTd>
-                  <DocTd>
-                    <Input type="number" className="text-right" value={l.price}
-                      onChange={(v) => setLines((ls) => ls.map((x) => x.key === l.key ? { ...x, price: v } : x))} />
-                  </DocTd>
-                  <DocTd align="right" mono>
-                    {Number(l.qty) * Number(l.price) > 0
-                      ? money(Number(l.qty) * Number(l.price), false) : '—'}
-                  </DocTd>
-                  <DocTd align="center">
-                    <Button size="sm" variant="ghost"
-                      onClick={() => setLines((ls) => ls.length > 1 ? ls.filter((x) => x.key !== l.key) : ls)}>
-                      <XIcon size={13} />
-                    </Button>
-                  </DocTd>
-                </DocTr>
-              )
-            })}
-          </tbody>
-        </DocTable>
-
-        <div className="flex items-center justify-between gap-3">
-          <Button size="sm" onClick={() => setLines((ls) => [...ls, newLine()])}>
-            <Plus size={14} />Qator
-          </Button>
-          <div className="text-right">
-            <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>Jami</div>
-            <div className="tnum text-[18px] font-semibold">{money(total)}</div>
-          </div>
-        </div>
-
-        <Field label="Izoh"><Textarea value={note} onChange={setNote} rows={2} /></Field>
-        {err && <ErrorBox>{err}</ErrorBox>}
-      </div>
-    </Modal>
-  )
-}
-
-function ConvertModal({
-  orderId, onClose, onDone,
-}: { orderId: number; onClose: () => void; onDone: (saleId: number) => void }) {
-  const [shipNow, setShipNow] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  async function convert() {
-    setBusy(true); setErr('')
-    const { data, error } = await supabase.rpc('ip_convert_order', {
-      p_order_id: orderId, p_mode: shipNow ? 'immediate' : 'deferred',
-    })
-    setBusy(false)
-    if (error) { setErr(translateDbError(error.message)); return }
-    onDone(data as number)
-  }
-
-  return (
-    <Modal
-      open onClose={onClose} width={460} title="Sotuvga aylantirish"
-      footer={<><Button onClick={onClose}>Bekor</Button>
-        <Button variant="primary" loading={busy} onClick={convert}>
-          <ArrowRightLeft size={14} />Aylantirish
-        </Button></>}
-    >
-      <div className="space-y-3">
-        <InfoBox>
-          Buyurtma asosida <b>sotuv qoralamasi</b> yaratiladi. Keyin uni tekshirib
-          topshirasiz — shundagina qarz va ombor harakati yoziladi.
-        </InfoBox>
-        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-2)' }}>
-          <Toggle
-            checked={shipNow} onChange={setShipNow}
-            label={shipNow ? 'Yuk hozir chiqadi' : 'Yuk keyin chiqadi'}
-          />
-          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--text-3)' }}>
-            {shipNow
-              ? 'Sotuv topshirilganda tovar darhol ombordan yechiladi.'
-              : "Tovar band bo'lib turadi, keyin chiqariladi."}
-          </p>
-        </div>
-        {err && <ErrorBox>{err}</ErrorBox>}
-      </div>
-    </Modal>
   )
 }

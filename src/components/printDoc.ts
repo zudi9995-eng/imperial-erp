@@ -177,6 +177,97 @@ function openPrintWindow(title: string, body: string) {
   w.document.close()
 }
 
+/** Xaridor buyurtmasi — 1C dagi «Печать» ga mos */
+export function printOrderDoc(
+  o: {
+    id: number
+    doc_no: string | null
+    doc_date: string
+    valid_until: string | null
+    customer_name: string
+    manager_name: string | null
+    warehouse_name: string | null
+    contract_no: string | null
+    note: string | null
+  },
+  items: {
+    name: string
+    code: string | null
+    unit_id: number | null
+    qty: number
+    price: number
+    line_total: number
+  }[],
+  refs: Refs,
+) {
+  const unit = (uid: number | null | undefined) =>
+    refs.units.find((u) => u.id === uid)?.code ?? ''
+  const total = items.reduce((a, i) => a + Number(i.line_total), 0)
+
+  const rows = items.map((i, n) => `
+    <tr>
+      <td class="c">${n + 1}</td>
+      <td>${esc(i.name)}${i.code ? `<br><span class="mut">${esc(i.code)}</span>` : ''}</td>
+      <td class="c">${esc(unit(i.unit_id))}</td>
+      <td class="r">${num(i.qty, 2)}</td>
+      <td class="r">${money(i.price, false)}</td>
+      <td class="r">${money(i.line_total, false)}</td>
+    </tr>`).join('')
+
+  const body = `
+  <div class="doc">
+    <h1>XARIDOR BUYURTMASI № ${esc(o.doc_no ?? o.id)}</h1>
+    <div class="sub">Sana: ${dateShort(o.doc_date)}${
+      o.valid_until ? ` · Amal qilish muddati: ${dateShort(o.valid_until)}` : ''}</div>
+
+    <div class="head">
+      <div class="box">
+        <b>Yetkazib beruvchi</b>
+        Imperial Partners MChJ
+        ${o.warehouse_name ? `<br>Ombor: ${esc(o.warehouse_name)}` : ''}
+        ${o.manager_name ? `<br>Menejer: ${esc(o.manager_name)}` : ''}
+      </div>
+      <div class="box">
+        <b>Xaridor</b>
+        ${esc(o.customer_name)}
+        <br>Shartnoma: ${esc(o.contract_no ?? 'Asosiy shartnoma')}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px">№</th>
+          <th>Nomenklatura</th>
+          <th style="width:52px">Birlik</th>
+          <th style="width:80px" class="r">Miqdor</th>
+          <th style="width:100px" class="r">Narx</th>
+          <th style="width:115px" class="r">Summa</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="tot"><table>
+      <tr><td><b>Jami</b></td><td class="v">${money(total)}</td></tr>
+    </table></div>
+
+    <div class="words">Summa so'z bilan: <b>${amountInWords(total)} so'm</b></div>
+    ${o.note ? `<div class="note">Izoh: ${esc(o.note)}</div>` : ''}
+
+    <div class="sign">
+      <div><div class="line"></div>Menejer (F.I.Sh., imzo)</div>
+      <div><div class="line"></div>Xaridor (F.I.Sh., imzo)</div>
+    </div>
+
+    <div class="note">
+      Bu buyurtma — kelishuv hujjati. Tovar yuk xati bilan topshiriladi.
+    </div>
+  </div>`
+
+  openPrintWindow(`Buyurtma ${o.doc_no ?? o.id}`, body)
+}
+
 /** Bitta sotuvdan hujjat */
 export function printSaleDoc(
   s: SaleBoardRow, items: SaleItemRow[], refs: Refs, kind: DocKind,
