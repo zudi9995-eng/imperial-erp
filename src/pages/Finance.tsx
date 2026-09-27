@@ -17,7 +17,7 @@ import {
 import { dateShort, isoDate, money, moneyShort, monthLabel, num, pct } from '../lib/format'
 import CashJournal from '../components/CashJournal'
 
-type Tab = 'position' | 'journal' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans' | 'scenario'
+type Tab = 'position' | 'journal' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans'
 
 export default function Finance() {
   const [tab, setTab] = useState<Tab>('position')
@@ -30,7 +30,6 @@ export default function Finance() {
     { key: 'plan',     label: 'Reja va byudjet' },
     { key: 'expenses', label: 'Harajatlar' },
     { key: 'loans',    label: 'Qarzlar' },
-    { key: 'scenario', label: 'Stsenariy' },
   ] as { key: Tab; label: string }[])
 
   return (
@@ -60,7 +59,6 @@ export default function Finance() {
       {tab === 'plan'     && <PlanTab />}
       {tab === 'expenses' && <ExpensesTab />}
       {tab === 'loans'    && <LoansTab />}
-      {tab === 'scenario' && <ScenarioTab />}
     </div>
   )
 }
@@ -1005,203 +1003,5 @@ function LoanPayModal({
         {err && <ErrorBox>{err}</ErrorBox>}
       </div>
     </Modal>
-  )
-}
-
-/* ================================================================ */
-/*  STSENARIY                                                        */
-/* ================================================================ */
-
-function ScenarioTab() {
-  const { n } = useSettings()
-  const [volume, setVolume] = useState('')
-  const [fixed, setFixed] = useState('')
-  const [periods, setPeriods] = useState<Period[]>([])
-  const [budgetTotal, setBudgetTotal] = useState(0)
-
-  useEffect(() => {
-    let alive = true
-    void Promise.all([
-      supabase.from('ip_periods').select('*').order('period_month'),
-      supabase.from('ip_budget_lines').select('period_month, amount'),
-    ]).then(([p, b]) => {
-      if (!alive) return
-      const ps = (p.data as Period[]) ?? []
-      setPeriods(ps)
-      const lines = (b.data as { period_month: string; amount: number }[]) ?? []
-      const months = new Set(lines.map((l) => l.period_month)).size || 1
-      setBudgetTotal(lines.reduce((a, l) => a + Number(l.amount), 0) / months)
-    })
-    return () => { alive = false }
-  }, [])
-
-  const planTotal = periods.reduce((a, p) => a + Number(p.sales_plan), 0)
-  const vol = Number(volume) || planTotal
-  const fx = Number(fixed) || budgetTotal
-  const monthsCount = periods.length || 6
-
-  const logistics = n('logistics_pct_of_sales', 1) / 100
-  const bonusPct = n('manager_bonus_pct', 8) / 100
-  const taxPct = n('profit_tax_pct', 15) / 100
-
-  /** Berilgan aylanma va marjada davr uchun sof foyda */
-  const netProfit = (revenue: number, marginPct: number, fixedPerMonth: number) => {
-    const gp = revenue * (marginPct / 100)
-    const variable = revenue * logistics + gp * bonusPct
-    const ebit = gp - variable - fixedPerMonth * monthsCount
-    return ebit - Math.max(0, ebit) * taxPct
-  }
-
-  const MARGINS = [16, 17, 18, 19, 20]
-  const COEFFS = [0.8, 0.9, 1.0, 1.1, 1.2]
-  const FIXED = [70, 80, 90, 100, 110].map((x) => x * 1_000_000)
-
-  const marginStep = useMemo(() => {
-    const a = netProfit(vol, 17, fx)
-    const b = netProfit(vol, 18, fx)
-    return b - a
-  }, [vol, fx])
-
-  const fixedStep = useMemo(() => {
-    const a = netProfit(vol, 17, fx)
-    const b = netProfit(vol, 17, fx - 10_000_000)
-    return b - a
-  }, [vol, fx])
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardTitle sub="Sozlamalardagi logistika, bonus va soliq foizlari ishlatiladi">
-          Boshlang'ich qiymatlar
-        </CardTitle>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={`Aylanma (${monthsCount} oy)`} hint={`Reja: ${money(planTotal)}`}>
-            <Input
-              type="number" className="text-right tnum" value={volume}
-              onChange={setVolume} placeholder={String(planTotal)}
-            />
-          </Field>
-          <Field label="Doimiy harajat (oyiga)" hint={`Byudjet: ${money(budgetTotal)}`}>
-            <Input
-              type="number" className="text-right tnum" value={fixed}
-              onChange={setFixed} placeholder={String(Math.round(budgetTotal))}
-            />
-          </Field>
-          <div className="flex items-end">
-            <InfoBox>
-              Logistika {pct(n('logistics_pct_of_sales', 1))} · bonus {pct(n('manager_bonus_pct', 8))}
-              {' '}· soliq {pct(n('profit_tax_pct', 15))}
-            </InfoBox>
-          </div>
-        </div>
-      </Card>
-
-      <Card pad={false}>
-        <div className="p-4">
-          <CardTitle sub={`${monthsCount} oylik sof foyda — aylanma va marja bo'yicha`}>
-            A. Sotuv hajmi × marja
-          </CardTitle>
-          <Table minWidth={680}>
-            <thead>
-              <tr>
-                <Th w={90}>Koeff</Th>
-                <Th w={160} align="right">Aylanma</Th>
-                {MARGINS.map((m) => <Th key={m} align="right">{m}%</Th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {COEFFS.map((k) => (
-                <Tr key={k} className={k === 1 ? 'bg-[var(--surface-2)]' : ''}>
-                  <Td mono className={k === 1 ? 'font-semibold' : ''}>{num(k, 2)}</Td>
-                  <Td align="right" mono>{moneyShort(vol * k)}</Td>
-                  {MARGINS.map((m) => {
-                    const v = netProfit(vol * k, m, fx)
-                    return (
-                      <Td key={m} align="right" mono>
-                        <span style={{ color: v >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
-                          {moneyShort(v)}
-                        </span>
-                      </Td>
-                    )
-                  })}
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      </Card>
-
-      <Card pad={false}>
-        <div className="p-4">
-          <CardTitle sub="Oylik operatsion foyda — rejadagi aylanmada">
-            B. Doimiy harajat × marja
-          </CardTitle>
-          <Table minWidth={680}>
-            <thead>
-              <tr>
-                <Th w={180}>Doimiy harajat / oy</Th>
-                {MARGINS.map((m) => <Th key={m} align="right">{m}%</Th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {FIXED.map((f) => (
-                <Tr key={f} className={Math.abs(f - fx) < 5_000_000 ? 'bg-[var(--surface-2)]' : ''}>
-                  <Td mono>{money(f, false)}</Td>
-                  {MARGINS.map((m) => {
-                    const monthly = netProfit(vol / monthsCount, m, f)
-                    return (
-                      <Td key={m} align="right" mono>
-                        <span style={{ color: monthly >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
-                          {moneyShort(monthly)}
-                        </span>
-                      </Td>
-                    )
-                  })}
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      </Card>
-
-      <Card>
-        <CardTitle>
-          <span className="inline-flex items-center gap-1.5">
-            <Calculator size={15} style={{ color: 'var(--brand)' }} />Xulosa
-          </span>
-        </CardTitle>
-        <ul className="space-y-2 text-[13.5px]">
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--brand)' }}>→</span>
-            <span>
-              Marja <b>1 foiz punktga</b> oshsa — {monthsCount} oyda qo'shimcha{' '}
-              <b>{moneyShort(marginStep)}</b> sof foyda.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--brand)' }}>→</span>
-            <span>
-              Doimiy harajat <b>10 mln so'mga</b> kamaysa — {monthsCount} oyda qo'shimcha{' '}
-              <b>{moneyShort(fixedStep)}</b> sof foyda.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--brand)' }}>→</span>
-            <span>
-              Ya'ni marjani 1% oshirish ≈{' '}
-              <b>{moneyShort(marginStep / monthsCount)}</b> oylik tejashga teng.
-              Ikkalasini birga qilish kerak.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--danger)' }}>⚠</span>
-            <span>
-              Eng xavfli stsenariy: marja <b>16%</b> va sotuv rejadan <b>20% past</b>{' '}
-              (koeff 0.80) — natija <b>{moneyShort(netProfit(vol * 0.8, 16, fx))}</b>.
-            </span>
-          </li>
-        </ul>
-      </Card>
-    </div>
   )
 }

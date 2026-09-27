@@ -2,6 +2,8 @@ import { useWindows } from '../lib/windows'
 import OrderForm from './OrderForm'
 import SaleDetail from './SaleDetail'
 import SaleForm from './SaleForm'
+import PurchaseForm from './PurchaseForm'
+import ReturnForm from './ReturnForm'
 
 /**
  * Ochiq hujjat oynalari. Hammasi bir vaqtda DOM da turadi — faqat
@@ -41,6 +43,26 @@ export default function DocWindows() {
               onClose={() => close(w.key)}
               onSaved={() => signal('sales')}
               onPosted={(sid) => open({
+                kind: 'sale', key: `sale:${sid}`, title: 'Sotuv', params: { id: sid },
+              })}
+            />
+          )}
+          {w.kind === 'purchase' && (
+            <PurchaseForm
+              winKey={w.key}
+              purchaseId={(w.params.purchaseId as number | null) ?? null}
+              onClose={() => close(w.key)}
+              onSaved={() => signal('purchases')}
+            />
+          )}
+          {w.kind === 'return' && (
+            <ReturnForm
+              winKey={w.key}
+              saleId={(w.params.saleId as number | null) ?? null}
+              returnId={(w.params.returnId as number | null) ?? null}
+              onClose={() => close(w.key)}
+              onSaved={() => { signal('returns'); signal('sales') }}
+              onOpenSale={(sid) => open({
                 kind: 'sale', key: `sale:${sid}`, title: 'Sotuv', params: { id: sid },
               })}
             />

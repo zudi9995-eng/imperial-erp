@@ -36,12 +36,14 @@ type Line = {
   margin: number | null
   minMargin: number | null
   noCost: boolean
+  /** QQS stavkasi — sozlamadan keladi, qatorda o'zgartirsa bo'ladi */
+  vat_pct: number
 }
 
 const newLine = (): Line => ({
   key: Math.random().toString(36).slice(2),
   product_id: null, qty: '', price: '',
-  list_price: 0, margin: null, minMargin: null, noCost: false,
+  list_price: 0, margin: null, minMargin: null, noCost: false, vat_pct: 0,
 })
 
 type Tab = 'items' | 'delivery' | 'extra'
@@ -70,7 +72,9 @@ export default function SaleForm({
   const refs = useRefs()
   const { customers, loading: custLoading } = useCustomers()
   const { products, loading: prodLoading } = useProducts()
-  const { n } = useSettings()
+  const { n, b } = useSettings()
+  const vatOn = b('vat_enabled', true)
+  const vatRate = vatOn ? n('vat_rate', 0) : 0
 
   const [id, setId] = useState<number | null>(saleId)
   const [docNo, setDocNo] = useState<string | null>(null)
@@ -157,13 +161,14 @@ export default function SaleForm({
       setDriver(s.delivery_driver ?? '')
       setVehicle(s.delivery_vehicle ?? '')
       const rows = (b.data as {
-        product_id: number; qty: number; price: number; list_price: number
+        product_id: number; qty: number; price: number; list_price: number; vat_pct: number
       }[]) ?? []
       setLines(rows.length
         ? rows.map((r) => ({
             key: Math.random().toString(36).slice(2),
             product_id: r.product_id, qty: String(r.qty), price: String(r.price),
             list_price: Number(r.list_price), margin: null, minMargin: null, noCost: false,
+            vat_pct: Number(r.vat_pct ?? 0),
           }))
         : [newLine()])
       setLoading(false)
@@ -245,6 +250,12 @@ export default function SaleForm({
   const total = valid.reduce((a, l) => a + Number(l.qty) * Number(l.price), 0)
   const qtyTotal = valid.reduce((a, l) => a + Number(l.qty), 0)
   const listTotal = valid.reduce((a, l) => a + Number(l.qty) * (l.list_price || Number(l.price)), 0)
+  // QQS narx ichida: summadan ajratib olinadi
+  const vatTotal = valid.reduce((a, l) => {
+    const line = Number(l.qty) * Number(l.price)
+    return a + line * l.vat_pct / (100 + l.vat_pct)
+  }, 0)
+  const exVatTotal = total - vatTotal
   const discountTotal = Math.max(0, listTotal - total)
   const belowMin = valid.filter(
     (l) => l.margin != null && l.minMargin != null && l.margin < l.minMargin)
@@ -276,7 +287,8 @@ export default function SaleForm({
     const p = priceMap.get(productId) ?? 0
     setLines((ls) => ls.map((x) => (x.key === key
       ? { ...x, product_id: productId, list_price: p,
-          price: p ? String(p) : x.price, qty: x.qty || '1' }
+          price: p ? String(p) : x.price, qty: x.qty || '1',
+          vat_pct: x.vat_pct || vatRate }
       : x)))
     touch()
     if (p) void checkMargin(key, productId, p)
@@ -299,7 +311,7 @@ export default function SaleForm({
   }
 
   function addLine() {
-    const l = newLine()
+    const l = { ...newLine(), vat_pct: vatRate }
     setLines((ls) => [...ls, l])
     setSelRow(l.key)
     touch()
@@ -336,6 +348,7 @@ export default function SaleForm({
             key: Math.random().toString(36).slice(2),
             product_id: p.product_id, qty: String(p.qty), price: String(lp),
             list_price: lp, margin: null, minMargin: null, noCost: false,
+            vat_pct: vatRate,
           }
           kept.push(l)
           byId.set(p.product_id, l)
@@ -397,6 +410,7 @@ export default function SaleForm({
         qty: Number(l.qty),
         price: Number(l.price),
         list_price: l.list_price || Number(l.price),
+        vat_pct: l.vat_pct,
         discount_pct: l.list_price > 0
           ? Number((((l.list_price - Number(l.price)) / l.list_price) * 100).toFixed(3))
           : 0,
@@ -688,6 +702,8 @@ export default function SaleForm({
           <ItemsGrid
             lines={lines} readOnly={readOnly} selRow={selRow} setSelRow={setSelRow}
             pickCtx={pickCtx} productOf={productOf} unitOf={unitOf} showMargin={showMargin}
+            showVat={vatRate > 0 || lines.some((l) => l.vat_pct > 0)}
+            onVat={(k, v) => patch(k, { vat_pct: Math.max(0, Number(v) || 0) })}
             onPick={pickProduct} onQty={(k, v) => patch(k, { qty: v })}
             onPrice={setPrice} onDiscount={setDiscount}
             onAdd={addLine} onRemove={removeLine} onMove={moveLine}
@@ -767,6 +783,9 @@ export default function SaleForm({
             { label: 'Miqdor', value: num(qtyTotal, 2) },
             ...(discountTotal > 0
               ? [{ label: 'Chegirma', value: money(discountTotal, false) }] : []),
+            ...(vatTotal > 0
+              ? [{ label: 'QQS siz', value: money(exVatTotal, false) },
+                 { label: `QQS (${vatRate}%)`, value: money(vatTotal, false) }] : []),
             { label: 'Jami', value: money(total), strong: true },
           ]}
         />
@@ -787,6 +806,7 @@ export default function SaleForm({
 
 function ItemsGrid({
   lines, readOnly, selRow, setSelRow, pickCtx, productOf, unitOf, showMargin,
+  showVat, onVat,
   onPick, onQty, onPrice, onDiscount, onAdd, onRemove, onMove, onOpenPicker,
 }: {
   lines: Line[]
@@ -797,6 +817,8 @@ function ItemsGrid({
   productOf: (id: number | null) => Product | null
   unitOf: (id: number | null | undefined) => string
   showMargin: boolean
+  showVat: boolean
+  onVat: (key: string, v: string) => void
   onPick: (key: string, pid: number) => void
   onQty: (key: string, v: string) => void
   onPrice: (key: string, v: string) => void
@@ -842,7 +864,7 @@ function ItemsGrid({
       </div>
 
       <div className="-mx-1 overflow-x-auto px-1">
-        <table className="w-full border-collapse text-[13px]" style={{ minWidth: 960 }}>
+        <table className="w-full border-collapse text-[13px]" style={{ minWidth: showVat ? 1150 : 960 }}>
           <thead>
             <tr style={{ background: 'var(--surface-2)' }}>
               {head('N', 34)}
@@ -852,6 +874,8 @@ function ItemsGrid({
               {head('Narx', 120, true)}
               {head('Chegirma %', 92, true)}
               {head('Summa', 132, true)}
+              {showVat ? head('QQS %', 72, true) : null}
+              {showVat ? head('QQS summa', 118, true) : null}
               {showMargin ? head('Marja', 84, true) : null}
               {head('Erkin qoldiq', 104, true)}
               {head('', 34)}
@@ -868,6 +892,7 @@ function ItemsGrid({
               const disc = l.list_price > 0 && price > 0
                 ? ((l.list_price - price) / l.list_price) * 100 : 0
               const low = l.margin != null && l.minMargin != null && l.margin < l.minMargin
+              const lineVat = l.vat_pct > 0 ? sum * l.vat_pct / (100 + l.vat_pct) : 0
               const on = selRow === l.key
               return (
                 <tr
@@ -925,6 +950,23 @@ function ItemsGrid({
                       style={{ borderColor: 'var(--border)' }}>
                     {sum > 0 ? money(sum, false) : '—'}
                   </td>
+                  {showVat && (
+                    <td className="border-b border-r px-1 py-[3px]"
+                        style={{ borderColor: 'var(--border)' }}>
+                      <CellInput
+                        type="number" align="right" value={l.vat_pct ? String(l.vat_pct) : ''}
+                        disabled={readOnly}
+                        onChange={(v) => onVat(l.key, v)}
+                      />
+                    </td>
+                  )}
+                  {showVat && (
+                    <td className="tnum border-b border-r px-2 py-[3px] text-right"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}
+                        title="Summa ichidagi QQS">
+                      {lineVat > 0 ? money(lineVat, false) : '—'}
+                    </td>
+                  )}
                   {showMargin && (
                     <td className="tnum border-b border-r px-2 py-[3px] text-right"
                         style={{

@@ -184,7 +184,7 @@ export default function Sales() {
       </div>
 
       {tab === 'orders'  && <OrdersTab onOpenSale={(id) => openSale(id)} />}
-      {tab === 'returns' && <ReturnsTab onOpenSale={(id) => openSale(id)} />}
+      {tab === 'returns' && <ReturnsTab />}
 
       {tab === 'sales' && <>
 

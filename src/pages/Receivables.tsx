@@ -6,14 +6,14 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useRefs, translateDbError } from '../lib/useRefs'
-import type { ArAging, ArBucket, ArCustomer } from '../lib/types'
+import type { ArAging, ArCustomer } from '../lib/types'
 import {
   Badge, Button, Card, CardTitle, Empty, ErrorBox, Field, InfoBox, Input, Loading,
   Modal, PageHeader, Progress, Select, Stat, Table, Td, Textarea, Th, Tr, type Tone,
 } from '../components/ui'
 import { dateShort, dateUz, isoDate, money, moneyShort, relativeDays } from '../lib/format'
 
-type Tab = 'calls' | 'customers' | 'docs' | 'aging'
+type Tab = 'calls' | 'customers' | 'docs'
 
 const BUCKET_TONE: Record<string, Tone> = {
   'muddatida': 'ok', "muddat yo'q": 'neutral',
@@ -27,7 +27,6 @@ export default function Receivables() {
   const [tab, setTab] = useState<Tab>('calls')
   const [rows, setRows] = useState<ArCustomer[]>([])
   const [docs, setDocs] = useState<ArAging[]>([])
-  const [buckets, setBuckets] = useState<ArBucket[]>([])
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -35,16 +34,14 @@ export default function Receivables() {
   const [callFor, setCallFor] = useState<ArCustomer | null>(null)
 
   const load = useCallback(async () => {
-    const [c, d, b] = await Promise.all([
+    const [c, d] = await Promise.all([
       supabase.from('ip_ar_customer').select('*').order('priority').order('net_base', { ascending: false }),
       supabase.from('ip_ar_aging').select('*').order('overdue_days', { ascending: false }).limit(300),
-      supabase.from('ip_ar_buckets').select('*').order('sort_order'),
     ])
     if (c.error) setErr(translateDbError(c.error.message))
     else setErr('')
     setRows((c.data as ArCustomer[]) ?? [])
     setDocs((d.data as ArAging[]) ?? [])
-    setBuckets((b.data as ArBucket[]) ?? [])
     setLoading(false)
   }, [])
 
@@ -79,7 +76,6 @@ export default function Receivables() {
     { key: 'calls',     label: `Qo'ng'iroq navbati (${callQueue.length})` },
     { key: 'customers', label: 'Mijozlar bo\'yicha' },
     { key: 'docs',      label: 'Hujjatlar' },
-    { key: 'aging',     label: 'Qarilik tahlili' },
   ] as { key: Tab; label: string }[])
 
   return (
@@ -148,7 +144,6 @@ export default function Receivables() {
         <CustomerList rows={filtered} canPay={canPay} onPay={setPayFor} onCall={setCallFor} />
       )}
       {tab === 'docs' && <DocList rows={docs} q={q} />}
-      {tab === 'aging' && <Aging buckets={buckets} />}
 
       {payFor && (
         <PaymentModal
@@ -377,42 +372,6 @@ function DocList({ rows, q }: { rows: ArAging[]; q: string }) {
     </Card>
   )
 }
-
-function Aging({ buckets }: { buckets: ArBucket[] }) {
-  const total = buckets.reduce((a, b) => a + Number(b.amount_base), 0)
-  if (buckets.length === 0) return <Card><Empty title="Ma'lumot yo'q" /></Card>
-
-  return (
-    <Card>
-      <CardTitle sub="Qarz qancha vaqtdan beri turganiga qarab">Qarilik tahlili</CardTitle>
-      <div className="space-y-3">
-        {buckets.map((b) => (
-          <div key={b.bucket}>
-            <div className="mb-1 flex items-end justify-between gap-3">
-              <span className="flex items-center gap-2 text-[13px]">
-                <Badge tone={BUCKET_TONE[b.bucket] ?? 'neutral'}>{b.bucket}</Badge>
-                <span style={{ color: 'var(--text-3)' }}>
-                  {b.customer_count} mijoz · {b.doc_count} hujjat
-                </span>
-              </span>
-              <span className="tnum text-[14px] font-semibold">{money(b.amount_base, false)}</span>
-            </div>
-            <Progress
-              value={Number(b.amount_base)} max={total}
-              tone={BUCKET_TONE[b.bucket] ?? 'neutral'} height={7}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 flex justify-between border-t pt-3 text-[13px]">
-        <span style={{ color: 'var(--text-3)' }}>Jami</span>
-        <span className="tnum font-semibold">{money(total)}</span>
-      </div>
-    </Card>
-  )
-}
-
-/* ---------------------------------------------------------------- */
 
 function PaymentModal({
   customer, onClose, onDone,

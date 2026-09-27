@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, Truck, Undo2, Printer, MapPin, Banknote, Package, CheckCircle2,
+  ArrowLeft, Truck, Undo2, Printer, MapPin, Banknote, Package, CheckCircle2, FileDown,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -12,10 +12,12 @@ import {
 } from './ui'
 import { dateShort, isoDate, money, num, pct } from '../lib/format'
 import { PayBadge, ShipBadge } from './SaleIndicators'
-import { printSaleDoc } from './printDoc'
+import { printSaleDoc, printOffer } from './printDoc'
+import { useSettings } from '../lib/settings'
 
 export default function SaleDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const { can } = useAuth()
+  const { n, s: sset } = useSettings()
   const refs = useRefs()
   const [s, setS] = useState<SaleBoardRow | null>(null)
   const [items, setItems] = useState<SaleItemRow[]>([])
@@ -43,6 +45,40 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
   const wh = refs.warehouses.find((w) => w.id === s.warehouse_id)?.name ?? ''
   const canShip = s.status === 'posted' && s.shipment_status !== 'shipped'
     && (can('sales.create') || can('sales.edit'))
+
+  // TypeScript ichki funksiyada null tekshiruvini saqlamaydi
+  const doc = s
+
+  /** Mijozga yuboriladigan tijorat taklifi — brauzerda PDF ga saqlanadi */
+  function makeOffer() {
+    printOffer(
+      {
+        doc_no: doc.doc_no,
+        doc_date: doc.doc_date,
+        valid_days: n('offer_valid_days', 7),
+        customer_name: doc.customer_name,
+        phone: doc.phone,
+        manager_name: doc.manager_name,
+        manager_phone: null,
+        company: sset('company_name', 'Imperial Partners MChJ'),
+        note: doc.note,
+        delivery_note: doc.delivery_address
+          ? `Yetkazib berish manzili: ${doc.delivery_address}`
+          : null,
+      },
+      items.map((i) => ({
+        name: i.product?.name ?? '',
+        code: i.product?.code ?? null,
+        unit_id: i.product?.unit_id ?? null,
+        qty: Number(i.qty),
+        price: Number(i.price),
+        line_total: Number(i.line_total),
+        vat_amount: Number((i as { vat_amount?: number }).vat_amount ?? 0),
+      })),
+      refs,
+    )
+  }
+
   const canReturn = s.status === 'posted' && s.qty_shipped > 0 && can('sales.cancel')
 
   return (
@@ -68,6 +104,12 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
           </Button>
           <Button size="sm" onClick={() => printSaleDoc(s, items, refs, 'invoice')}>
             <Printer size={14} />Hisob-faktura
+          </Button>
+          <Button
+            size="sm" onClick={makeOffer}
+            title="Mijozga yuborish uchun — PDF sifatida saqlanadi"
+          >
+            <FileDown size={14} />Tijorat taklifi
           </Button>
           {s.status === 'posted' && Number(s.due_base) > 0 && can('pay.customer') && (
             <Button size="sm" variant="primary" onClick={() => setModal('pay')}>

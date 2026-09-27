@@ -11,6 +11,7 @@ import {
   Modal, PageHeader, Select, Stat, Table, Td, Textarea, Th, Toggle, Tr,
 } from '../components/ui'
 import { dateShort, isoDate, money, moneyShort, monthStart, num } from '../lib/format'
+import { useWindows, useSignal } from '../lib/windows'
 
 type Tab = 'docs' | 'suppliers'
 
@@ -56,8 +57,19 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
   const [to, setTo] = useState(isoDate())
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
+  const { open } = useWindows()
+  const purchSignal = useSignal('purchases')
+
+  /** Xaridni alohida oynada ochadi */
+  const openPurchase = useCallback((o: { id?: number | null; name?: string; no?: string | null }) => {
+    open({
+      kind: 'purchase',
+      key: o.id ? `purchase:${o.id}` : 'purchase:new',
+      title: o.name ? `Xarid · ${o.name.slice(0, 22)}` : 'Xarid (yaratish)',
+      subtitle: o.no ?? undefined,
+      params: { purchaseId: o.id ?? null },
+    })
+  }, [open])
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -70,7 +82,7 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
     setLoading(false)
   }, [from, to])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, purchSignal])
   if (loading) return <Loading />
 
   const posted = rows.filter((r) => r.status === 'posted')
@@ -91,7 +103,7 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
         <div className="w-[150px]"><Field label="Dan"><Input type="date" value={from} onChange={setFrom} /></Field></div>
         <div className="w-[150px]"><Field label="Gacha"><Input type="date" value={to} onChange={setTo} /></Field></div>
         {isOwner && (
-          <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yangi xarid</Button>
+          <Button variant="primary" onClick={() => openPurchase({})}><Plus size={14} />Yangi xarid</Button>
         )}
       </div>
 
@@ -101,7 +113,7 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
             <Empty
               title="Xarid hujjati yo'q"
               hint="Postavshikdan tovar kelganda shu yerga kiritasiz. Postlanganda partiya yaraladi va FIFO tan narx ishlay boshlaydi."
-              action={isOwner && <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Birinchi xarid</Button>}
+              action={isOwner && <Button variant="primary" onClick={() => openPurchase({})}><Plus size={14} />Birinchi xarid</Button>}
             />
           ) : (
             <Table minWidth={860}>
@@ -144,7 +156,7 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
                     </Td>
                     <Td align="right">
                       {isOwner && r.status === 'draft' && (
-                        <Button size="sm" variant="ghost" onClick={() => setEditId(r.id)}>
+                        <Button size="sm" variant="ghost" onClick={() => openPurchase({ id: r.id, name: r.supplier?.name, no: r.doc_no })}>
                           <Pencil size={14} />
                         </Button>
                       )}
@@ -156,302 +168,9 @@ function DocsTab({ isOwner }: { isOwner: boolean }) {
           )}
         </div>
       </Card>
-
-      {(creating || editId) && (
-        <PurchaseModal
-          purchaseId={editId}
-          onClose={() => { setCreating(false); setEditId(null) }}
-          onDone={() => { setCreating(false); setEditId(null); void load() }}
-        />
-      )}
     </div>
   )
 }
-
-/* ---------------------------------------------------------------- */
-
-type Line = { key: string; product_id: number | null; qty: string; cost: string }
-const newLine = (): Line => ({
-  key: Math.random().toString(36).slice(2), product_id: null, qty: '', cost: '',
-})
-
-function PurchaseModal({
-  purchaseId, onClose, onDone,
-}: { purchaseId: number | null; onClose: () => void; onDone: () => void }) {
-  const refs = useRefs()
-  const { suppliers } = useSuppliers()
-  const { products } = useProducts()
-
-  const [supplier, setSupplier] = useState<number | null>(null)
-  const [warehouse, setWarehouse] = useState<number | null>(null)
-  const [date, setDate] = useState(isoDate())
-  const [currency, setCurrency] = useState('UZS')
-  const [rate, setRate] = useState('1')
-  const [note, setNote] = useState('')
-  const [lines, setLines] = useState<Line[]>([newLine()])
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const [done, setDone] = useState<{ count: number; total: number } | null>(null)
-
-  useEffect(() => {
-    if (warehouse == null && refs.warehouses.length) {
-      setWarehouse((refs.warehouses.find((w) => w.is_default) ?? refs.warehouses[0]).id)
-    }
-  }, [refs.warehouses, warehouse])
-
-  // Valyuta o'zgarsa kursni spravochnikdan olamiz
-  useEffect(() => {
-    if (currency === 'UZS') { setRate('1'); return }
-    let alive = true
-    void supabase.from('ip_exchange_rates').select('rate')
-      .eq('currency', currency).lte('rate_date', date)
-      .order('rate_date', { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => {
-        if (alive && data) setRate(String((data as { rate: number }).rate))
-      })
-    return () => { alive = false }
-  }, [currency, date])
-
-  // Mavjud qoralamani yuklash
-  useEffect(() => {
-    if (!purchaseId) return
-    let alive = true
-    void Promise.all([
-      supabase.from('ip_purchases').select('*').eq('id', purchaseId).single(),
-      supabase.from('ip_purchase_items').select('*').eq('purchase_id', purchaseId),
-    ]).then(([p, it]) => {
-      if (!alive || !p.data) return
-      const pu = p.data as Purchase
-      setSupplier(pu.supplier_id)
-      setWarehouse(pu.warehouse_id)
-      setDate(pu.doc_date)
-      setCurrency(pu.currency)
-      setRate(String(pu.fx_rate))
-      setNote(pu.note ?? '')
-      const items = (it.data as { product_id: number; qty: number; unit_cost: number }[]) ?? []
-      setLines(items.length
-        ? items.map((i) => ({
-            key: Math.random().toString(36).slice(2),
-            product_id: i.product_id, qty: String(i.qty), cost: String(i.unit_cost),
-          }))
-        : [newLine()])
-    })
-    return () => { alive = false }
-  }, [purchaseId])
-
-  const valid = lines.filter((l) => l.product_id && Number(l.qty) > 0 && Number(l.cost) > 0)
-  const fx = Number(rate) || 1
-  const totalDoc = valid.reduce((a, l) => a + Number(l.qty) * Number(l.cost), 0)
-  const totalBase = totalDoc * fx
-
-  async function save(post: boolean) {
-    if (!supplier || !warehouse) { setErr('Postavshik va ombor tanlanmagan'); return }
-    if (valid.length === 0) { setErr('Tovar kiritilmagan'); return }
-    setBusy(true); setErr('')
-    try {
-      let id = purchaseId
-      if (!id) {
-        const { data, error } = await supabase.rpc('ip_create_purchase', {
-          p_supplier: supplier, p_warehouse: warehouse,
-          p_doc_date: date, p_currency: currency, p_fx_rate: fx,
-        })
-        if (error) throw new Error(error.message)
-        id = (data as Purchase).id
-      } else {
-        const { error } = await supabase.from('ip_purchases').update({
-          supplier_id: supplier, warehouse_id: warehouse, doc_date: date,
-          currency, fx_rate: fx,
-        } as never).eq('id', id)
-        if (error) throw new Error(error.message)
-        await supabase.from('ip_purchase_items').delete().eq('purchase_id', id)
-      }
-
-      if (note.trim()) {
-        await supabase.from('ip_purchases').update({ note: note.trim() } as never).eq('id', id)
-      }
-
-      const { error: e2 } = await supabase.from('ip_purchase_items').insert(
-        valid.map((l) => ({
-          purchase_id: id,
-          product_id: l.product_id,
-          qty: Number(l.qty),
-          unit_cost: Number(l.cost),
-          unit_cost_base: Number(l.cost) * fx,
-          line_total_base: Number(l.qty) * Number(l.cost) * fx,
-        })) as never,
-      )
-      if (e2) throw new Error(e2.message)
-
-      await supabase.rpc('ip_recalc_purchase', { p_purchase_id: id })
-
-      if (post) {
-        const { error: e3 } = await supabase.rpc('ip_post_purchase', { p_purchase_id: id })
-        if (e3) throw new Error(e3.message)
-        setDone({ count: valid.length, total: totalBase })
-      } else {
-        onDone()
-      }
-    } catch (e) {
-      setErr(translateDbError(e instanceof Error ? e.message : 'Xato'))
-    } finally { setBusy(false) }
-  }
-
-  if (refs.loading) return <Modal open onClose={onClose} title="Xarid"><Loading /></Modal>
-
-  if (done) {
-    return (
-      <Modal
-        open onClose={onDone} width={460} title="Xarid postlandi"
-        footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}
-      >
-        <InfoBox tone="ok">
-          <span className="flex items-start gap-2">
-            <CheckCircle2 size={15} className="mt-0.5 shrink-0" />
-            <span>
-              {done.count} pozitsiya uchun <b>partiya yaratildi</b>, jami{' '}
-              <b>{money(done.total)}</b>. Endi bu tovarlar FIFO bo'yicha sotiladi.
-            </span>
-          </span>
-        </InfoBox>
-      </Modal>
-    )
-  }
-
-  return (
-    <Modal
-      open onClose={onClose} width={860}
-      title={purchaseId ? 'Xaridni tahrirlash' : 'Yangi xarid'}
-      footer={
-        <>
-          <Button onClick={onClose}>Bekor</Button>
-          <Button loading={busy} onClick={() => save(false)} disabled={valid.length === 0}>
-            Qoralama saqlash
-          </Button>
-          <Button variant="primary" loading={busy} onClick={() => save(true)} disabled={valid.length === 0}>
-            <Send size={14} />Postlash
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <InfoBox>
-          Postlanganda har pozitsiya uchun <b>alohida partiya</b> yaraladi.
-          Sotuvda eng eski partiya birinchi sarflanadi — tan narx shundan olinadi.
-        </InfoBox>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Postavshik" required>
-            <Select
-              value={supplier ?? ''} onChange={(v) => setSupplier(v ? Number(v) : null)}
-              placeholder="Tanlang…" options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-            />
-          </Field>
-          <Field label="Ombor" required>
-            <Select
-              value={warehouse ?? ''} onChange={(v) => setWarehouse(v ? Number(v) : null)}
-              options={refs.warehouses.map((w) => ({ value: w.id, label: w.name }))}
-            />
-          </Field>
-          <Field label="Sana"><Input type="date" value={date} onChange={setDate} /></Field>
-          <Field label="Valyuta">
-            <Select
-              value={currency} onChange={setCurrency}
-              options={[{ value: 'UZS', label: "so'm" }, { value: 'USD', label: 'USD' }]}
-            />
-          </Field>
-        </div>
-
-        {currency !== 'UZS' && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Kurs" hint="Spravochnikdan olindi, o'zgartirish mumkin">
-              <Input type="number" className="text-right tnum" value={rate} onChange={setRate} />
-            </Field>
-            <div className="flex items-end">
-              <InfoBox tone="info">
-                Tan narx so'mga shu kurs bilan keltiriladi: {money(totalBase)}
-              </InfoBox>
-            </div>
-          </div>
-        )}
-
-        <div>
-          <div className="mb-2 text-[13px] font-medium">Tovarlar</div>
-          <Table minWidth={700}>
-            <thead>
-              <tr>
-                <Th>Tovar</Th>
-                <Th w={110} align="right">Miqdor</Th>
-                <Th w={150} align="right">Tan narx{currency !== 'UZS' && ` (${currency})`}</Th>
-                <Th w={150} align="right">Summa</Th>
-                <Th w={44} />
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l) => {
-                const sum = Number(l.qty) * Number(l.cost)
-                return (
-                  <Tr key={l.key}>
-                    <Td>
-                      <Select
-                        value={l.product_id ?? ''}
-                        onChange={(v) => setLines((ls) => ls.map((x) =>
-                          x.key === l.key ? { ...x, product_id: Number(v) } : x))}
-                        placeholder="Tovarni tanlang…"
-                        options={products.map((p) => ({
-                          value: p.id, label: p.code ? `${p.code} — ${p.name}` : p.name,
-                        }))}
-                      />
-                    </Td>
-                    <Td>
-                      <Input
-                        type="number" className="text-right" value={l.qty}
-                        onChange={(v) => setLines((ls) => ls.map((x) =>
-                          x.key === l.key ? { ...x, qty: v } : x))}
-                      />
-                    </Td>
-                    <Td>
-                      <Input
-                        type="number" className="text-right" value={l.cost}
-                        onChange={(v) => setLines((ls) => ls.map((x) =>
-                          x.key === l.key ? { ...x, cost: v } : x))}
-                      />
-                    </Td>
-                    <Td align="right" mono>
-                      {sum > 0 ? money(sum * fx, false) : '—'}
-                    </Td>
-                    <Td align="center">
-                      <Button
-                        size="sm" variant="ghost"
-                        onClick={() => setLines((ls) => ls.length > 1 ? ls.filter((x) => x.key !== l.key) : ls)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </Td>
-                  </Tr>
-                )
-              })}
-            </tbody>
-          </Table>
-
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <Button size="sm" onClick={() => setLines((ls) => [...ls, newLine()])}>
-              <Plus size={14} />Qator
-            </Button>
-            <div className="text-right">
-              <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>Jami (so'mda)</div>
-              <div className="tnum text-[18px] font-semibold">{money(totalBase)}</div>
-            </div>
-          </div>
-        </div>
-
-        <Field label="Izoh"><Textarea value={note} onChange={setNote} rows={2} /></Field>
-        {err && <ErrorBox>{err}</ErrorBox>}
-      </div>
-    </Modal>
-  )
-}
-
-/* ---------------------------------------------------------------- */
 
 function SuppliersTab({ isOwner }: { isOwner: boolean }) {
   const [rows, setRows] = useState<SupplierBalance[]>([])

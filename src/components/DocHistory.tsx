@@ -59,7 +59,8 @@ function show(field: string, v: unknown): string {
 
 export default function DocHistory({
   entity, entityId,
-}: { entity: 'ip_orders' | 'ip_sales'; entityId: number | null }) {
+}: { entity: 'ip_orders' | 'ip_sales' | 'ip_returns' | 'ip_purchases'
+     entityId: number | null }) {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 

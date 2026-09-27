@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, Undo2, Download } from 'lucide-react'
+import { Search, Undo2, Download, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { translateDbError } from '../lib/useRefs'
@@ -8,6 +8,7 @@ import {
   Table, Td, Th, Tr,
 } from './ui'
 import { dateShort, isoDate, money, moneyShort, monthStart, num } from '../lib/format'
+import { useWindows, useSignal } from '../lib/windows'
 
 interface ReturnRow {
   id: number
@@ -30,7 +31,22 @@ interface ReturnRow {
   manager_name: string | null
 }
 
-export default function ReturnsTab({ onOpenSale }: { onOpenSale: (id: number) => void }) {
+export default function ReturnsTab() {
+  const { open } = useWindows()
+  const retSignal = useSignal('returns')
+
+  /** Qaytarish hujjatini alohida oynada ochadi */
+  const openReturn = useCallback((o: {
+    returnId?: number | null; saleId?: number | null; name?: string
+  }) => {
+    open({
+      kind: 'return',
+      key: o.returnId ? `return:${o.returnId}` : 'return:new',
+      title: o.name ? `Qaytarish · ${o.name.slice(0, 20)}` : 'Qaytarish (yaratish)',
+      params: { returnId: o.returnId ?? null, saleId: o.saleId ?? null },
+    })
+  }, [open])
+
   const { can } = useAuth()
   const [rows, setRows] = useState<ReturnRow[]>([])
   const [from, setFrom] = useState(monthStart(new Date(new Date().setMonth(new Date().getMonth() - 2))))
@@ -51,7 +67,7 @@ export default function ReturnsTab({ onOpenSale }: { onOpenSale: (id: number) =>
     setLoading(false)
   }, [from, to])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, retSignal])
 
   const reasons = useMemo(
     () => [...new Set(rows.map((r) => r.reason).filter(Boolean))] as string[], [rows])
@@ -138,6 +154,9 @@ export default function ReturnsTab({ onOpenSale }: { onOpenSale: (id: number) =>
             options={reasons.map((r) => ({ value: r, label: r }))}
           />
         </div>
+        <Button variant="primary" onClick={() => openReturn({})}>
+          <Plus size={14} />Yaratish
+        </Button>
         <Button onClick={exportCsv}><Download size={14} />Yuklash</Button>
       </div>
 
@@ -164,7 +183,7 @@ export default function ReturnsTab({ onOpenSale }: { onOpenSale: (id: number) =>
               </thead>
               <tbody>
                 {filtered.map((r) => (
-                  <Tr key={r.id} onClick={() => r.sale_id && onOpenSale(r.sale_id)}>
+                  <Tr key={r.id} onClick={() => openReturn({ returnId: r.id, name: r.customer_name })}>
                     <Td mono>
                       <span className="text-[12.5px]">{r.doc_no ?? `#${r.id}`}</span>
                       {r.status !== 'posted' && (
