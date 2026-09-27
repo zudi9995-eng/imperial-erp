@@ -11,7 +11,7 @@ import {
   DocTable, DocTd, DocTh, DocToolbar, DocTr, MarkLegend, StatusDot, ToneLegend,
   type Mark, type RowTone,
 } from './docList'
-import OrderForm from './OrderForm'
+import { useWindows, useSignal } from '../lib/windows'
 import { dateShort, money, num } from '../lib/format'
 
 interface OrderRow {
@@ -60,10 +60,9 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
   const [sel, setSel] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
-  const [copyFrom, setCopyFrom] = useState<number | null>(null)
   const [showFilter, setShowFilter] = useState(false)
+  const { open } = useWindows()
+  const ordersSignal = useSignal('orders')
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('ip_orders_board').select('*')
@@ -74,7 +73,23 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
     setLoading(false)
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  // Oyna yashiringan bo'lsa ham qayta yuklanadi — qaytganingizda ro'yxat yangi
+  useEffect(() => { void load() }, [load, ordersSignal])
+
+  /** Hujjatni alohida oynada ochadi (1C dagidek) */
+  const openOrder = useCallback((o: {
+    orderId: number | null; copyFromId?: number | null; name?: string; no?: string | null
+  }) => {
+    const key = o.orderId ? `order:${o.orderId}`
+      : o.copyFromId ? `order:copy:${o.copyFromId}`
+      : 'order:new'
+    open({
+      kind: 'order', key,
+      title: o.name ? `Buyurtma · ${o.name.slice(0, 22)}` : 'Buyurtma (yaratish)',
+      subtitle: o.no ?? undefined,
+      params: { orderId: o.orderId, copyFromId: o.copyFromId ?? null },
+    })
+  }, [open])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -98,21 +113,6 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
     await load()
   }
 
-  // Hujjat ochilganda ro'yxat o'rnini forma egallaydi — 1C dagidek
-  if (creating || editId || copyFrom) {
-    return (
-      <OrderForm
-        orderId={editId}
-        copyFromId={copyFrom}
-        onClose={() => { setCreating(false); setEditId(null); setCopyFrom(null) }}
-        onSaved={() => { void load() }}
-        onOpenSale={(sid) => {
-          setCreating(false); setEditId(null); setCopyFrom(null); onOpenSale(sid)
-        }}
-      />
-    )
-  }
-
   if (loading) return <Loading />
 
   const total = filtered.reduce((a, r) => a + Number(r.total), 0)
@@ -125,19 +125,19 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
         left={
           <>
             {can('sales.create') && (
-              <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
+              <Button size="sm" variant="primary" onClick={() => openOrder({ orderId: null })}>
                 <Plus size={14} />Yaratish
               </Button>
             )}
             <Button
               size="sm" disabled={!current} title="Ochish (yoki qatorni ikki marta bosing)"
-              onClick={() => current && setEditId(current.id)}
+              onClick={() => current && openOrder({ orderId: current.id, name: current.customer_name, no: current.doc_no })}
             >
               <FolderOpen size={14} />Ochish
             </Button>
             <Button
               size="sm" disabled={!current} title="Nusxasini yaratish"
-              onClick={() => current && setCopyFrom(current.id)}
+              onClick={() => current && openOrder({ orderId: null, copyFromId: current.id, name: current.customer_name })}
             >
               <Copy size={14} />
             </Button>
@@ -223,7 +223,7 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
               title="Buyurtma yo'q"
               hint="Mijoz so'ragan, lekin hali rasmiylashtirilmagan tovarni shu yerga yozasiz."
               action={can('sales.create')
-                ? <Button variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Yaratish</Button>
+                ? <Button variant="primary" onClick={() => openOrder({ orderId: null })}><Plus size={14} />Yaratish</Button>
                 : undefined}
             />
           ) : (
@@ -252,7 +252,7 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
                         selected={sel === r.id}
                         tone={state.tone}
                         onClick={() => setSel(sel === r.id ? null : r.id)}
-                        onDoubleClick={() => { setSel(r.id); setEditId(r.id) }}
+                        onDoubleClick={() => { setSel(r.id); openOrder({ orderId: r.id, name: r.customer_name, no: r.doc_no }) }}
                       >
                         <DocTd align="center">
                           <StatusDot
@@ -315,7 +315,7 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
 
       {current && (
         <div className="mt-3">
-          <OrderPreview row={current} onOpenSale={onOpenSale} onEdit={() => setEditId(current.id)} />
+          <OrderPreview row={current} onOpenSale={onOpenSale} onEdit={() => openOrder({ orderId: current.id, name: current.customer_name, no: current.doc_no })} />
         </div>
       )}
     </div>

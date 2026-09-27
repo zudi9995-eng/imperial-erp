@@ -10,11 +10,14 @@ import type { Order, Product } from '../lib/types'
 import { ErrorBox, InfoBox, Loading, Modal, Button } from './ui'
 import {
   BarSep, CellInput, DocBarButton, DocCommandBar, DocField, DocFooter, DocInput,
-  DocLink, DocMainButton, DocSelect, DocTabs, DocTitleBar, DocWindow, TotalsBox,
+  DocLink, DocMainButton, DocNav, DocSelect, DocTabs, DocTitleBar, DocWindow, TotalsBox,
 } from './docForm'
 import { ProductCombo, ProductPickerModal, type PickCtx, type PickedLine } from './ProductPick'
 import { isoDate, money, num } from '../lib/format'
 import { printOrderDoc } from './printDoc'
+import { useWindowSelf } from '../lib/windows'
+import DocHistory from './DocHistory'
+import CustomerSnapshot from './CustomerSnapshot'
 
 /**
  * 1C «Заказ покупателя» formasining ERP dagi ko'rinishi.
@@ -35,6 +38,8 @@ const newLine = (): Line => ({
 })
 
 type Tab = 'items' | 'delivery' | 'extra'
+/** 1C dagi forma navigatsiya paneli: Основное / События / Отчеты */
+type Section = 'main' | 'history' | 'reports'
 
 interface Balance {
   debt_base: number
@@ -43,8 +48,10 @@ interface Balance {
 }
 
 export default function OrderForm({
-  orderId, copyFromId, onClose, onSaved, onOpenSale,
+  winKey, orderId, copyFromId, onClose, onSaved, onOpenSale,
 }: {
+  /** Sidebardagi oyna kaliti — sarlavha va "saqlanmagan" belgisi uchun */
+  winKey?: string
   /** Mavjud buyurtmani ochish */
   orderId: number | null
   /** Nusxa olish uchun manba */
@@ -53,6 +60,7 @@ export default function OrderForm({
   onSaved: () => void
   onOpenSale: (saleId: number) => void
 }) {
+  const self = useWindowSelf(winKey)
   const { can, profile } = useAuth()
   const refs = useRefs()
   const { customers } = useCustomers()
@@ -82,6 +90,7 @@ export default function OrderForm({
 
   /* ----- holat ----- */
   const [tab, setTab] = useState<Tab>('items')
+  const [section, setSection] = useState<Section>('main')
   const [loading, setLoading] = useState(Boolean(orderId || copyFromId))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -380,6 +389,18 @@ export default function OrderForm({
     onSaved()
   }
 
+  // Sidebardagi oyna yorlig'i hujjat bilan birga o'zgarib turadi
+  useEffect(() => {
+    self.setMeta({
+      title: customer?.name
+        ? `Buyurtma · ${customer.name.slice(0, 22)}`
+        : 'Buyurtma (yaratish)',
+      subtitle: docNo ?? undefined,
+    })
+  }, [self, customer?.name, docNo])
+
+  useEffect(() => { self.setDirty(dirty) }, [self, dirty])
+
   function doPrint() {
     printOrderDoc(
       {
@@ -446,6 +467,15 @@ export default function OrderForm({
           : undefined}
       />
 
+      <DocNav<Section>
+        value={section} onChange={setSection}
+        items={[
+          { key: 'main', label: 'Asosiy' },
+          { key: 'history', label: 'Tarix' },
+          { key: 'reports', label: 'Hisobotlar' },
+        ]}
+      />
+
       <DocCommandBar>
         <DocMainButton
           onClick={() => void doPost(true)} disabled={readOnly || busy}
@@ -487,6 +517,24 @@ export default function OrderForm({
           </>
         )}
       </DocCommandBar>
+
+      {section === 'history' && (
+        <div className="flex-1 px-3 py-3">
+          <DocHistory entity="ip_orders" entityId={id} />
+        </div>
+      )}
+
+      {section === 'reports' && (
+        <div className="flex-1 px-3 py-3">
+          <CustomerSnapshot
+            customerId={customerId}
+            customerName={customer?.name ?? ''}
+            onOpenSale={onOpenSale}
+          />
+        </div>
+      )}
+
+      {section === 'main' && <>
 
       {/* ---------------- sarlavha maydonlari ---------------- */}
       <div className="grid gap-x-6 px-3 py-2 lg:grid-cols-2">
@@ -661,6 +709,8 @@ export default function OrderForm({
           ]}
         />
       </DocFooter>
+
+      </>}
 
       {picking && (
         <ProductPickerModal

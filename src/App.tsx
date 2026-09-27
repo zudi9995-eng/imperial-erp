@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
+import { WindowsProvider } from './lib/windows'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import { Empty, Loading } from './components/ui'
@@ -35,6 +36,7 @@ export default function App() {
   if (!session || !profile) return <Login />
 
   return (
+    <WindowsProvider>
     <Suspense fallback={<div className="p-8"><Loading /></div>}>
       <Routes>
         <Route element={<Layout />}>
@@ -66,6 +68,7 @@ export default function App() {
         </Route>
       </Routes>
     </Suspense>
+    </WindowsProvider>
   )
 }
 

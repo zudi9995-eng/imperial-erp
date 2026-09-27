@@ -59,6 +59,41 @@ export function DocTitleBar({
   )
 }
 
+/**
+ * 1C dagi forma navigatsiya paneli — sarlavha ostidagi havolalar qatori
+ * («Основное · События · Отчеты»). Faol bo'lim ostidan chiziq tortiladi.
+ */
+export function DocNav<T extends string>({
+  items, value, onChange,
+}: {
+  items: { key: T; label: string }[]
+  value: T
+  onChange: (k: T) => void
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-4 border-b px-3 py-1.5"
+      style={{ borderColor: 'var(--border)' }}
+    >
+      {items.map((i) => {
+        const on = i.key === value
+        return (
+          <button
+            key={i.key} type="button" onClick={() => onChange(i.key)}
+            style={{
+              color: on ? 'var(--text)' : 'var(--brand)',
+              borderBottom: on ? '2px solid var(--brand)' : '2px solid transparent',
+            }}
+            className={`pb-[3px] text-[13px] ${on ? 'font-semibold' : 'hover:underline'}`}
+          >
+            {i.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function DocCommandBar({ children }: { children: ReactNode }) {
   return (
     <div

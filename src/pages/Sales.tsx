@@ -19,10 +19,10 @@ import {
 } from '../components/docList'
 import { dateShort, isoDate, money, moneyShort, monthStart, num, pct } from '../lib/format'
 import { SalesTotals, exportSalesCsv } from '../components/SaleIndicators'
-import SaleDetail from '../components/SaleDetail'
 import OrdersTab from '../components/OrdersTab'
 import ReturnsTab from '../components/ReturnsTab'
 import { printManySaleDocs } from '../components/printDoc'
+import { useWindows, useSignal } from '../lib/windows'
 
 type Line = {
   key: string
@@ -38,7 +38,6 @@ type Line = {
 export default function Sales() {
   const { profile, can } = useAuth()
   const refs = useRefs()
-  const [openId, setOpenId] = useState<number | null>(null)
   const [tab, setTab] = useState<'sales' | 'orders' | 'returns'>('sales')
   const [sel, setSel] = useState<Set<number>>(new Set())
   const [printing, setPrinting] = useState(false)
@@ -55,6 +54,18 @@ export default function Sales() {
   const [editId, setEditId] = useState<number | null>(null)
   const [params, setParams] = useSearchParams()
   const presetCustomer = params.get('customer')
+  const { open } = useWindows()
+  const salesSignal = useSignal('sales')
+
+  /** Sotuvni alohida oynada ochadi — boshqa ishni yo'qotmasdan */
+  const openSale = useCallback((id: number, name?: string, no?: string | null) => {
+    open({
+      kind: 'sale', key: `sale:${id}`,
+      title: name ? `Sotuv · ${name.slice(0, 22)}` : 'Sotuv',
+      subtitle: no ?? undefined,
+      params: { id },
+    })
+  }, [open])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -74,7 +85,7 @@ export default function Sales() {
     setLoading(false)
   }, [from, to, status])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, salesSignal])
 
   useEffect(() => {
     if (presetCustomer) setCreating(true)
@@ -123,7 +134,6 @@ export default function Sales() {
     } finally { setPrinting(false) }
   }
 
-  if (openId) return <SaleDetail id={openId} onBack={() => { setOpenId(null); void load() }} />
   if (loading || refs.loading) return <Loading />
 
   const QUICK: { key: typeof quick; label: string; n: number; tone: string }[] = [
@@ -172,8 +182,8 @@ export default function Sales() {
         ))}
       </div>
 
-      {tab === 'orders'  && <OrdersTab onOpenSale={(id) => { setTab('sales'); setOpenId(id) }} />}
-      {tab === 'returns' && <ReturnsTab onOpenSale={(id) => { setTab('sales'); setOpenId(id) }} />}
+      {tab === 'orders'  && <OrdersTab onOpenSale={(id) => openSale(id)} />}
+      {tab === 'returns' && <ReturnsTab onOpenSale={(id) => openSale(id)} />}
 
       {tab === 'sales' && <>
 
@@ -307,7 +317,7 @@ export default function Sales() {
                         alt={i % 2 === 1}
                         selected={checked}
                         tone={s.tone}
-                        onClick={() => r.status === 'draft' ? setEditId(r.id) : setOpenId(r.id)}
+                        onClick={() => r.status === 'draft' ? setEditId(r.id) : openSale(r.id, r.customer_name, r.doc_no)}
                       >
                         <DocTd align="center" stopClick>
                           <input

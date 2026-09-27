@@ -3,13 +3,15 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, Wallet, Building2, Sparkles,
   Settings as SettingsIcon, BarChart3, CalendarDays, CheckSquare, Menu, X,
-  LogOut, Moon, Sun, Truck, UserCog, Handshake, ShieldCheck, Bell,
+  LogOut, Moon, Sun, Truck, UserCog, Handshake, ShieldCheck, Bell, FileText,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Badge, Button } from './ui'
 import { initials } from '../lib/format'
 import MoneyBar from './MoneyBar'
+import DocWindows from './DocWindows'
+import { useWindows } from '../lib/windows'
 
 interface NavItem {
   to: string
@@ -43,6 +45,7 @@ const NAV: NavItem[] = [
 
 export default function Layout() {
   const { profile, signOut, can, roleName } = useAuth()
+  const { wins, active, activate, close, closeAll } = useWindows()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(
@@ -59,7 +62,8 @@ export default function Layout() {
     } catch { /* private rejimda ishlamasligi mumkin */ }
   }, [theme])
 
-  useEffect(() => { setOpen(false) }, [loc.pathname])
+  // Bo'lim almashtirilganda ochiq oyna orqaga chekinadi (yopilmaydi)
+  useEffect(() => { setOpen(false); activate(null) }, [loc.pathname, activate])
 
   useEffect(() => {
     if (!profile) return
@@ -137,6 +141,63 @@ export default function Layout() {
           ))}
         </nav>
 
+        {/* Ochiq oynalar — 1C dagidek, hujjat yopilmaguncha shu yerda turadi */}
+        {wins.length > 0 && (
+          <div className="shrink-0 border-t px-2 py-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
+            <div className="flex items-center justify-between px-2 pb-1">
+              <span className="text-[10.5px] font-bold uppercase tracking-wider"
+                    style={{ color: 'var(--text-3)' }}>
+                Ochiq oynalar
+              </span>
+              <button
+                onClick={closeAll} title="Hammasini yopish"
+                className="text-[11px] hover:underline" style={{ color: 'var(--text-3)' }}
+              >
+                hammasi
+              </button>
+            </div>
+            {wins.map((w) => {
+              const on = w.key === active
+              return (
+                <div
+                  key={w.key}
+                  onClick={() => activate(w.key)}
+                  className="mb-0.5 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[6px] text-[13px]"
+                  style={{
+                    background: on ? 'var(--brand-soft)' : 'transparent',
+                    color: on ? 'var(--brand)' : 'var(--text-2)',
+                    fontWeight: on ? 600 : 500,
+                  }}
+                >
+                  <FileText size={14} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {w.title}
+                    {w.subtitle && (
+                      <span className="ml-1 font-normal" style={{ color: 'var(--text-3)' }}>
+                        {w.subtitle}
+                      </span>
+                    )}
+                  </span>
+                  {w.dirty && (
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      title="Saqlanmagan o'zgarishlar"
+                      style={{ background: 'var(--warn)' }}
+                    />
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); close(w.key) }}
+                    title="Yopish" className="shrink-0 rounded p-0.5 hover:bg-[var(--surface-2)]"
+                    style={{ color: 'var(--text-3)' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         <div className="shrink-0 border-t p-3">
           <div className="mb-2 flex items-center gap-2.5">
             <div
@@ -198,7 +259,12 @@ export default function Layout() {
 
         <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1400px]">
-            <Outlet />
+            {/* Ochiq oyna faol bo'lsa ro'yxat yashiriladi, lekin DOM da
+                qoladi — qaytganda filtr va aylantirish joyida turadi */}
+            <div style={{ display: active ? 'none' : 'block' }}>
+              <Outlet />
+            </div>
+            <DocWindows />
           </div>
         </main>
       </div>
