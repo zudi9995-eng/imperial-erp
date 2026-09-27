@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Plus, Copy, Check, Ban, FolderOpen, Search, Filter,
-  RefreshCw, X as XIcon, FileText,
+  RefreshCw, X as XIcon, FileText, Truck, Wallet,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useRefs, translateDbError } from '../lib/useRefs'
 import { Button, Card, Empty, ErrorBox, Field, Loading, Select } from './ui'
 import {
-  DocTable, DocTd, DocTh, DocToolbar, DocTr, MarkLegend, StatusDot, type Mark,
+  DocTable, DocTd, DocTh, DocToolbar, DocTr, MarkLegend, StatusDot, ToneLegend,
+  type Mark, type RowTone,
 } from './docList'
 import OrderForm from './OrderForm'
 import { dateShort, money, num } from '../lib/format'
@@ -42,13 +43,13 @@ interface OrderRow {
   is_overdue: boolean
 }
 
-/** 1C dagi "Состояние" ustuniga o'xshash */
-const STATE: Record<string, { label: string; attention: boolean }> = {
-  new:         { label: 'Ishlanmagan',    attention: true },
-  confirmed:   { label: 'Band qilindi',   attention: false },
-  in_progress: { label: 'Ishlanmoqda',    attention: false },
-  done:        { label: 'Yakunlangan',    attention: false },
-  cancelled:   { label: 'Bekor qilingan', attention: false },
+/** 1C dagi "Состояние" ustuni — qator rangini ham shu belgilaydi */
+const STATE: Record<string, { label: string; tone: RowTone }> = {
+  new:         { label: 'Ishlanmagan',    tone: 'attention' },
+  confirmed:   { label: 'Band qilindi',   tone: 'active' },
+  in_progress: { label: 'Ishlanmoqda',    tone: 'active' },
+  done:        { label: 'Yakunlangan',    tone: 'normal' },
+  cancelled:   { label: 'Bekor qilingan', tone: 'muted' },
 }
 
 export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => void }) {
@@ -230,8 +231,8 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
               <DocTable minWidth={1120}>
                 <thead>
                   <tr>
-                    <DocTh w={30} align="center"><span title="Yuk chiqishi">🚚</span></DocTh>
-                    <DocTh w={30} align="center"><span title="To'lov">₿</span></DocTh>
+                    <DocTh w={28} align="center"><Truck size={13} /></DocTh>
+                    <DocTh w={28} align="center"><Wallet size={13} /></DocTh>
                     <DocTh w={95}>Sana</DocTh>
                     <DocTh w={130} sorted="desc">Raqam</DocTh>
                     <DocTh w={120}>Holat</DocTh>
@@ -242,14 +243,14 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => {
+                  {filtered.map((r, i) => {
                     const state = STATE[r.state] ?? STATE.new
-                    const att = state.attention || r.is_expired || r.is_overdue
                     return (
                       <DocTr
                         key={r.id}
+                        alt={i % 2 === 1}
                         selected={sel === r.id}
-                        attention={att}
+                        tone={state.tone}
                         onClick={() => setSel(sel === r.id ? null : r.id)}
                         onDoubleClick={() => { setSel(r.id); setEditId(r.id) }}
                       >
@@ -274,15 +275,13 @@ export default function OrdersTab({ onOpenSale }: { onOpenSale: (id: number) => 
                           />
                         </DocTd>
                         <DocTd mono>{dateShort(r.doc_date)}</DocTd>
-                        <DocTd mono tone={att ? 'attention' : 'normal'}>
-                          {r.doc_no ?? `#${r.id}`}
-                        </DocTd>
-                        <DocTd tone={state.attention ? 'attention' : 'normal'}>
+                        <DocTd mono>{r.doc_no ?? `#${r.id}`}</DocTd>
+                        <DocTd>
                           {state.label}
-                          {r.is_expired && (
-                            <div className="text-[11px]" style={{ color: 'var(--danger)' }}>
-                              muddati o'tgan
-                            </div>
+                          {(r.is_expired || r.is_overdue) && (
+                            <span className="ml-1.5 text-[11px]" style={{ color: 'var(--danger)' }}>
+                              {r.is_expired ? "muddati o'tgan" : 'qarz kechikkan'}
+                            </span>
                           )}
                         </DocTd>
                         <DocTd tone="link">{r.customer_name}</DocTd>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Trash2, Search, AlertTriangle, CheckCircle2, Clock, Ban, Send,
-  Download, Truck, Filter, X as XIcon, Printer,
+  Download, Truck, Wallet, Filter, X as XIcon, Printer,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -13,8 +13,12 @@ import {
   Badge, Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
   PageHeader, Select, Stat, Table, Td, Th, Toggle, Tr, Textarea,
 } from '../components/ui'
+import {
+  DocTable, DocTd, DocTh, DocTr, MarkLegend, StatusDot, ToneLegend,
+  type Mark, type RowTone,
+} from '../components/docList'
 import { dateShort, isoDate, money, moneyShort, monthStart, num, pct } from '../lib/format'
-import { PayBadge, ShipBadge, SalesTotals, exportSalesCsv } from '../components/SaleIndicators'
+import { SalesTotals, exportSalesCsv } from '../components/SaleIndicators'
 import SaleDetail from '../components/SaleDetail'
 import OrdersTab from '../components/OrdersTab'
 import ReturnsTab from '../components/ReturnsTab'
@@ -269,82 +273,124 @@ export default function Sales() {
             />
           ) : (
             <>
-              <Table minWidth={1220}>
+              <DocTable minWidth={1140}>
                 <thead>
                   <tr>
-                    <Th w={34}>
+                    <DocTh w={30} align="center">
                       <input
                         type="checkbox"
                         checked={sel.size > 0 && sel.size === filtered.length}
                         onChange={(e) => setSel(e.target.checked
                           ? new Set(filtered.map((r) => r.id)) : new Set())}
                       />
-                    </Th>
-                    <Th w={125}>Hujjat</Th>
-                    <Th w={95}>Sana</Th>
-                    <Th>Mijoz</Th>
-                    {can('view.hr') && <Th w={130}>Menejer</Th>}
-                    <Th w={130} align="right">Summa</Th>
-                    {can('cost.view') && <Th w={80} align="right">Marja</Th>}
-                    <Th w={130}>To'lov</Th>
-                    <Th w={110}>Yuk</Th>
-                    <Th w={95}>Muddat</Th>
-                    <Th w={115} align="center">Holat</Th>
+                    </DocTh>
+                    <DocTh w={28} align="center"><Truck size={13} /></DocTh>
+                    <DocTh w={28} align="center"><Wallet size={13} /></DocTh>
+                    <DocTh w={92}>Sana</DocTh>
+                    <DocTh w={118} sorted="desc">Hujjat</DocTh>
+                    <DocTh w={132}>Holat</DocTh>
+                    <DocTh>Mijoz</DocTh>
+                    {can('view.hr') && <DocTh w={120}>Menejer</DocTh>}
+                    <DocTh w={130} align="right">Summa</DocTh>
+                    {can('cost.view') && <DocTh w={70} align="right">Marja</DocTh>}
+                    <DocTh w={120} align="right">Qarz</DocTh>
+                    <DocTh w={92}>Muddat</DocTh>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => (
-                    <Tr key={r.id} onClick={() => r.status === 'draft' ? setEditId(r.id) : setOpenId(r.id)}>
-                      <Td mono><span className="text-[12.5px]">{r.doc_no ?? `#${r.id}`}</span></Td>
-                      <Td mono>{dateShort(r.doc_date)}</Td>
-                      <Td>
-                        <div className="font-medium">{r.customer_name}</div>
-                        {r.delivery_address && (
-                          <div className="line-clamp-1 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
-                            {r.delivery_address}
-                          </div>
+                  {filtered.map((r, i) => {
+                    const s = saleState(r)
+                    const checked = sel.has(r.id)
+                    return (
+                      <DocTr
+                        key={r.id}
+                        alt={i % 2 === 1}
+                        selected={checked}
+                        tone={s.tone}
+                        onClick={() => r.status === 'draft' ? setEditId(r.id) : setOpenId(r.id)}
+                      >
+                        <DocTd align="center" stopClick>
+                          <input
+                            type="checkbox" checked={checked}
+                            onChange={(e) => setSel((prev) => {
+                              const n = new Set(prev)
+                              if (e.target.checked) n.add(r.id); else n.delete(r.id)
+                              return n
+                            })}
+                          />
+                        </DocTd>
+                        <DocTd align="center">
+                          <StatusDot mark={s.ship} title={s.shipTitle} />
+                        </DocTd>
+                        <DocTd align="center">
+                          <StatusDot mark={s.pay} title={s.payTitle} />
+                        </DocTd>
+                        <DocTd mono>{dateShort(r.doc_date)}</DocTd>
+                        <DocTd mono>{r.doc_no ?? `#${r.id}`}</DocTd>
+                        <DocTd>
+                          {s.label}
+                          {r.source === 'opening' && (
+                            <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                              1C qoldig'i
+                            </div>
+                          )}
+                        </DocTd>
+                        <DocTd tone="link">
+                          {r.customer_name}
+                          {r.delivery_address && (
+                            <div className="line-clamp-1 text-[11.5px]"
+                                 style={{ color: 'var(--text-3)' }}>
+                              {r.delivery_address}
+                            </div>
+                          )}
+                        </DocTd>
+                        {can('view.hr') && <DocTd tone="link">{r.manager_name ?? '—'}</DocTd>}
+                        <DocTd align="right" mono>
+                          {money(r.net_base, false)}
+                          {Number(r.returned_base) > 0 && (
+                            <div className="text-[11px]" style={{ color: 'var(--warn)' }}>
+                              qaytgan {moneyShort(r.returned_base)}
+                            </div>
+                          )}
+                        </DocTd>
+                        {can('cost.view') && (
+                          <DocTd align="right" mono>
+                            {r.margin_pct != null ? (
+                              <span style={{
+                                color: Number(r.margin_pct) < 10 ? 'var(--danger)'
+                                  : Number(r.margin_pct) < 15 ? 'var(--warn)' : 'var(--ok)',
+                              }}>{pct(r.margin_pct)}</span>
+                            ) : '—'}
+                          </DocTd>
                         )}
-                      </Td>
-                      {can('view.hr') && (
-                        <Td><span className="text-[12.5px]">{r.manager_name ?? '—'}</span></Td>
-                      )}
-                      <Td align="right" mono>
-                        {money(r.net_base, false)}
-                        {Number(r.returned_base) > 0 && (
-                          <div className="text-[11px]" style={{ color: 'var(--warn)' }}>
-                            qaytgan {moneyShort(r.returned_base)}
-                          </div>
-                        )}
-                      </Td>
-                      {can('cost.view') && (
-                        <Td align="right" mono>
-                          {r.margin_pct != null ? (
-                            <span style={{
-                              color: Number(r.margin_pct) < 10 ? 'var(--danger)'
-                                : Number(r.margin_pct) < 15 ? 'var(--warn)' : 'var(--ok)',
-                            }}>{pct(r.margin_pct)}</span>
-                          ) : '—'}
-                        </Td>
-                      )}
-                      <Td>
-                        <PayBadge r={r} />
-                        {Number(r.due_base) > 0 && r.status === 'posted' && (
-                          <div className="tnum text-[11px]" style={{ color: 'var(--text-3)' }}>
-                            qarz {moneyShort(r.due_base)}
-                          </div>
-                        )}
-                      </Td>
-                      <Td><ShipBadge r={r} /></Td>
-                      <Td mono>
-                        <span style={{ color: r.is_overdue ? 'var(--danger)' : undefined }}>
+                        <DocTd align="right" mono>
+                          {Number(r.due_base) > 0 ? money(r.due_base, false) : '—'}
+                        </DocTd>
+                        <DocTd mono tone={r.is_overdue ? 'danger' : 'normal'}>
                           {r.due_date ? dateShort(r.due_date) : '—'}
-                        </span>
-                      </Td>
-                      <Td align="center"><BoardStatus r={r} /></Td>
-                    </Tr>
-                  ))}
+                          {r.is_overdue && (
+                            <div className="text-[11px]" style={{ color: 'var(--danger)' }}>
+                              {r.overdue_days} kun
+                            </div>
+                          )}
+                        </DocTd>
+                      </DocTr>
+                    )
+                  })}
                 </tbody>
-              </Table>
+              </DocTable>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
+                   style={{ borderColor: 'var(--border)' }}>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                  <MarkLegend items={[
+                    { mark: 'full',  label: 'bajarilgan' },
+                    { mark: 'half',  label: 'qisman' },
+                    { mark: 'empty', label: 'bajarilmagan' },
+                  ]} />
+                  <ToneLegend />
+                </div>
+              </div>
               <div className="mt-3"><SalesTotals rows={filtered} /></div>
             </>
           )}
@@ -373,12 +419,58 @@ export default function Sales() {
   )
 }
 
-function BoardStatus({ r }: { r: SaleBoardRow }) {
-  if (r.status === 'cancelled') return <Badge tone="neutral"><Ban size={11} />bekor</Badge>
-  if (r.approval_status === 'pending') return <Badge tone="warn"><Clock size={11} />tasdiq</Badge>
-  if (r.approval_status === 'rejected') return <Badge tone="danger"><Ban size={11} />rad etildi</Badge>
-  if (r.status === 'posted') return <Badge tone="ok"><CheckCircle2 size={11} />postlangan</Badge>
-  return <Badge tone="info">qoralama</Badge>
+/**
+ * Sotuv hujjatining 1C uslubidagi holati: qator rangi, ikkita doira va
+ * ularning izohi. 1C da ham qator rangi «Состояние» ga bog'langan.
+ */
+function saleState(r: SaleBoardRow): {
+  label: string
+  tone: RowTone
+  ship: Mark
+  pay: Mark
+  shipTitle: string
+  payTitle: string
+} {
+  const net = Number(r.net_base)
+  const paid = Number(r.paid_base)
+
+  // Yuk
+  let ship: Mark = 'empty'
+  let shipTitle = 'Yuk chiqmagan'
+  if (r.status === 'cancelled' || r.status === 'draft') { ship = 'none'; shipTitle = '—' }
+  else if (r.shipment_status === 'shipped') { ship = 'full'; shipTitle = 'Yuk chiqarilgan' }
+  else if (r.shipment_status === 'partial') {
+    ship = 'half'
+    shipTitle = `Qisman chiqarilgan: ${num(r.qty_shipped, 2)} / ${num(r.qty_total, 2)}`
+  }
+
+  // To'lov
+  let pay: Mark = 'empty'
+  let payTitle = "To'lov yo'q"
+  if (r.status === 'cancelled' || r.status === 'draft') { pay = 'none'; payTitle = '—' }
+  else if (net <= 0 || paid >= net) { pay = 'full'; payTitle = "To'liq to'langan" }
+  else if (paid > 0) {
+    pay = 'half'
+    payTitle = `Qisman to'langan: qarz ${money(r.due_base)}`
+  }
+
+  // Holat
+  if (r.status === 'cancelled') {
+    return { label: 'Bekor qilingan', tone: 'muted', ship, pay, shipTitle, payTitle }
+  }
+  if (r.approval_status === 'rejected') {
+    return { label: 'Rad etildi', tone: 'muted', ship, pay, shipTitle, payTitle }
+  }
+  if (r.approval_status === 'pending') {
+    return { label: 'Tasdiq kutmoqda', tone: 'attention', ship, pay, shipTitle, payTitle }
+  }
+  if (r.status === 'draft') {
+    return { label: 'Qoralama', tone: 'attention', ship, pay, shipTitle, payTitle }
+  }
+  if (ship === 'full' && pay === 'full') {
+    return { label: 'Yakunlangan', tone: 'normal', ship, pay, shipTitle, payTitle }
+  }
+  return { label: 'Ishlanmoqda', tone: 'active', ship, pay, shipTitle, payTitle }
 }
 
 /* ================================================================ */
