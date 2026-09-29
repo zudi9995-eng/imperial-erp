@@ -12,8 +12,9 @@ import {
   PageHeader, Select, Stat, Table, Td, Th, Tr, type Tone,
 } from '../components/ui'
 import { dateTimeUz, money, moneyShort, num } from '../lib/format'
+import InventoryTab from '../components/InventoryTab'
 
-type Tab = 'signals' | 'stock' | 'batches' | 'moves' | 'transfers'
+type Tab = 'signals' | 'stock' | 'batches' | 'moves' | 'transfers' | 'inventory'
 
 interface StockRow {
   product_id: number; code: string | null; name: string
@@ -107,6 +108,7 @@ export default function Stock() {
     { key: 'batches',   label: 'Partiyalar', owner: true },
     { key: 'moves',     label: 'Harakatlar', owner: true },
     { key: 'transfers', label: "Ko'chirish" },
+    { key: 'inventory', label: 'Inventarizatsiya' },
   ] as { key: Tab; label: string; owner?: boolean }[]).filter((t) => !t.owner || isOwner)
 
   return (
@@ -174,15 +176,18 @@ export default function Stock() {
         </div>
       )}
 
-      <Card pad={false}>
-        <div className="p-4">
-          {tab === 'signals' && <Signals rows={filteredSignals} isOwner={isOwner} />}
-          {tab === 'stock' && <StockList rows={filteredStock} />}
-          {tab === 'batches' && <Batches />}
-          {tab === 'moves' && <Moves />}
-          {tab === 'transfers' && <Transfers refs={refs} canWrite={isOwner} onDone={load} />}
-        </div>
-      </Card>
+      {/* Inventarizatsiya o'z kartochkalarini chizadi — ikki qavat ramka bo'lmasin */}
+      {tab === 'inventory' ? <InventoryTab /> : (
+        <Card pad={false}>
+          <div className="p-4">
+            {tab === 'signals' && <Signals rows={filteredSignals} isOwner={isOwner} />}
+            {tab === 'stock' && <StockList rows={filteredStock} />}
+            {tab === 'batches' && <Batches />}
+            {tab === 'moves' && <Moves />}
+            {tab === 'transfers' && <Transfers refs={refs} canWrite={isOwner} onDone={load} />}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

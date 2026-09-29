@@ -41,7 +41,7 @@ export default function DocWindows() {
               saleId={(w.params.saleId as number | null) ?? null}
               presetCustomerId={(w.params.customerId as number | null) ?? null}
               onClose={() => close(w.key)}
-              onSaved={() => signal('sales')}
+              onSaved={() => { signal('sales'); signal('approvals') }}
               onPosted={(sid) => open({
                 kind: 'sale', key: `sale:${sid}`, title: 'Sotuv', params: { id: sid },
               })}

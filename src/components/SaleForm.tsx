@@ -79,6 +79,9 @@ export default function SaleForm({
   const [id, setId] = useState<number | null>(saleId)
   const [docNo, setDocNo] = useState<string | null>(null)
   const [status, setStatus] = useState<'draft' | 'posted' | 'cancelled'>('draft')
+  const [approval, setApproval] = useState<{ status: string; reason: string | null }>({
+    status: 'not_required', reason: null,
+  })
 
   const [customerId, setCustomerId] = useState<number | null>(presetCustomerId ?? null)
   const [contractId, setContractId] = useState<number | null>(null)
@@ -146,7 +149,9 @@ export default function SaleForm({
         shipment_mode?: string; doc_no: string | null; contract_id: number | null
         delivery_address: string | null; delivery_driver: string | null
         delivery_vehicle: string | null
+        approval_status: string; approval_reason: string | null
       }
+      setApproval({ status: s.approval_status, reason: s.approval_reason })
       setId(s.id)
       setDocNo(s.doc_no)
       setStatus(s.status as typeof status)
@@ -438,18 +443,21 @@ export default function SaleForm({
     try {
       const sid = await write()
       if (!sid) return
-      const { data, error } = await supabase.rpc('ip_submit_sale', { p_sale_id: sid })
+      const rpcName = approval.status === 'rejected' ? 'ip_resubmit_sale' : 'ip_submit_sale'
+      const { data, error } = await supabase.rpc(rpcName, { p_sale_id: sid })
       if (error) throw new Error(error.message)
       const res = data as { status: string; reasons?: string[]; margin_pct?: number }
       onSaved()
 
       if (res.status === 'pending') {
         setStatus('draft')
+        setApproval({ status: 'pending', reason: (res.reasons ?? []).join('; ') })
         setOk(`Tasdiqqa yuborildi. Sabab: ${(res.reasons ?? []).join('; ')}. `
           + "Tasdiqlanmaguncha tovar ombordan yechilmaydi.")
         return
       }
       setStatus('posted')
+      setApproval({ status: 'approved', reason: null })
       setOk("Hujjat o'tkazildi, tovar ombordan yechildi."
         + (res.margin_pct != null ? ` Marja: ${pct(res.margin_pct)}.` : ''))
       if (close) { onPosted(sid); onClose() }
@@ -672,6 +680,23 @@ export default function SaleForm({
 
       {err && <div className="px-3 pb-2"><ErrorBox>{err}</ErrorBox></div>}
       {ok && !err && <div className="px-3 pb-2"><InfoBox tone="ok">{ok}</InfoBox></div>}
+      {!err && approval.status === 'pending' && (
+        <div className="px-3 pb-2">
+          <InfoBox tone="warn">
+            <b>Tasdiq kutilmoqda.</b> Tovar ombordan yechilmagan.
+            {approval.reason && <> Sabab: {approval.reason}</>}
+          </InfoBox>
+        </div>
+      )}
+      {!err && approval.status === 'rejected' && (
+        <div className="px-3 pb-2">
+          <InfoBox tone="danger">
+            <b>Rad etildi.</b>
+            {approval.reason && <> {approval.reason}.</>}
+            {' '}Narx yoki miqdorni tuzatib qayta o'tkazing.
+          </InfoBox>
+        </div>
+      )}
       {!err && belowMin.length > 0 && (
         <div className="px-3 pb-2">
           <InfoBox tone="warn">
