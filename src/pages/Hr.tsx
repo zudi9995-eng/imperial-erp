@@ -16,6 +16,7 @@ import {
 import {
   dateShort, initials, isoDate, money, moneyShort, monthLabel, monthStart, num, pct, timeUz,
 } from '../lib/format'
+import HrReminders from '../components/HrReminders'
 
 type Tab = 'staff' | 'kpi' | 'attendance' | 'leaves' | 'payroll'
 
@@ -45,6 +46,8 @@ export default function Hr() {
         title="Xodimlar"
         sub={isOwner ? 'Hisob ochish, KPI, davomat, oylik va bonus' : "O'z ko'rsatkichlaringiz"}
       />
+
+      <HrReminders />
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {TABS.map((t) => (

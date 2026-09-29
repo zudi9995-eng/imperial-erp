@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, Wallet, Building2, Sparkles,
   Settings as SettingsIcon, BarChart3, CalendarDays, CheckSquare, Menu, X,
-  LogOut, Moon, Sun, Truck, UserCog, Handshake, ShieldCheck, Bell, FileText,
+  LogOut, Moon, Sun, Truck, UserCog, Handshake, ShieldCheck, FileText,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -11,6 +11,7 @@ import { Badge, Button } from './ui'
 import { initials } from '../lib/format'
 import MoneyBar from './MoneyBar'
 import DocWindows from './DocWindows'
+import NotifyBell from './NotifyBell'
 import { useWindows } from '../lib/windows'
 
 interface NavItem {
@@ -51,7 +52,6 @@ export default function Layout() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(
     () => (localStorage.getItem('ip-theme') as 'light' | 'dark' | 'auto') ?? 'auto',
   )
-  const [unread, setUnread] = useState(0)
   const [pending, setPending] = useState(0)
 
   useEffect(() => {
@@ -69,16 +69,11 @@ export default function Layout() {
     if (!profile) return
     let alive = true
     async function load() {
-      const [n, a] = await Promise.all([
-        supabase.from('ip_notifications').select('id', { count: 'exact', head: true })
-          .eq('is_read', false),
-        can('view.approvals')
-          ? supabase.from('ip_approvals').select('id', { count: 'exact', head: true })
-              .eq('status', 'pending')
-          : Promise.resolve({ count: 0 } as { count: number | null }),
-      ])
+      const a = await (can('view.approvals')
+        ? supabase.from('ip_approvals').select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+        : Promise.resolve({ count: 0 } as { count: number | null }))
       if (!alive) return
-      setUnread(n.count ?? 0)
       setPending(a.count ?? 0)
     }
     void load()
@@ -215,6 +210,7 @@ export default function Layout() {
             </div>
           </div>
           <div className="flex gap-1.5">
+            <span className="hidden items-center px-1 lg:flex"><NotifyBell /></span>
             <Button
               size="sm" variant="subtle" className="flex-1"
               title="Tema"
@@ -248,11 +244,7 @@ export default function Layout() {
         >
           <button onClick={() => setOpen(true)} aria-label="Menyu"><Menu size={20} /></button>
           <span className="font-semibold">Imperial Partners</span>
-          {unread > 0 && (
-            <span className="ml-auto flex items-center gap-1" style={{ color: 'var(--warn)' }}>
-              <Bell size={16} /><span className="text-[13px] font-semibold">{unread}</span>
-            </span>
-          )}
+          <span className="ml-auto"><NotifyBell compact /></span>
         </header>
 
         <MoneyBar />
