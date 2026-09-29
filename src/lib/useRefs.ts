@@ -146,7 +146,11 @@ export async function invokeFn<T = unknown>(
     const ctx = (error as { context?: unknown }).context
     if (ctx && typeof (ctx as Response).json === 'function') {
       try {
-        const parsed = await (ctx as Response).json() as { error?: string }
+        const parsed = await (ctx as Response).json() as
+          { error?: string; message?: string }
+        // Funksiya tushuntirish yuborgan bo'lsa shuni ko'rsatamiz,
+        // quruq kod ('no_key') emas
+        if (parsed?.message) throw new Error(String(parsed.message))
         if (parsed?.error) throw new Error(String(parsed.error))
       } catch (e) {
         if (e instanceof Error && e.message && !/json/i.test(e.message)) throw e
@@ -155,7 +159,7 @@ export async function invokeFn<T = unknown>(
     throw new Error(translateDbError(error.message))
   }
 
-  const payload = data as { error?: string } | null
-  if (payload?.error) throw new Error(payload.error)
+  const payload = data as { error?: string; message?: string } | null
+  if (payload?.error) throw new Error(payload.message ?? payload.error)
   return data as T
 }
