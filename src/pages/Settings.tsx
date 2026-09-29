@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
 import RefTable, { type Col } from '../components/RefTable'
 import RolesEditor from '../components/RolesEditor'
+import TelegramLink from '../components/TelegramLink'
 import {
   Badge, Button, Card, CardTitle, ErrorBox, Field, InfoBox, Input, Loading,
   PageHeader, Select, Toggle,
@@ -98,6 +99,12 @@ export default function SettingsPage() {
 
       {tab === 'roles'       ? <RolesEditor />
         : tab === 'spravochnik' ? <Directories canWrite={isOwner} />
+        : tab === 'telegram' ? (
+          <div className="space-y-4">
+            <TelegramLink />
+            <SettingGroup grp={tab} canWrite={isOwner} />
+          </div>
+        )
         : <SettingGroup grp={tab} canWrite={isOwner} />}
     </div>
   )
