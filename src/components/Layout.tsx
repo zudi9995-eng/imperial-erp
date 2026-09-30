@@ -12,6 +12,7 @@ import { initials } from '../lib/format'
 import MoneyBar from './MoneyBar'
 import DocWindows from './DocWindows'
 import NotifyBell from './NotifyBell'
+import { Logo, LogoMark } from './Logo'
 import { useWindows } from '../lib/windows'
 
 interface NavItem {
@@ -106,12 +107,15 @@ export default function Layout() {
         style={{ background: 'var(--surface)' }}
       >
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
-          <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold leading-tight">
-              {company?.name ?? 'Boshqaruv platformasi'}
-            </div>
-            <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-              Boshqaruv platformasi
+          <div className="flex min-w-0 items-center gap-2.5">
+            <LogoMark size={28} />
+            <div className="min-w-0">
+              <div className="truncate text-[13.5px] font-semibold leading-tight">
+                {company?.name ?? 'Sales Growth'}
+              </div>
+              <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                Sales Growth
+              </div>
             </div>
           </div>
           <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Yopish">
@@ -260,7 +264,7 @@ export default function Layout() {
           style={{ background: 'var(--surface)' }}
         >
           <button onClick={() => setOpen(true)} aria-label="Menyu"><Menu size={20} /></button>
-          <span className="font-semibold">Imperial Partners</span>
+          <Logo size={24} />
           <span className="ml-auto"><NotifyBell compact /></span>
         </header>
 

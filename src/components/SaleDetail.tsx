@@ -43,6 +43,9 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
 
   const unit = (uid: number | null) => refs.units.find((u) => u.id === uid)?.code ?? ''
   const wh = refs.warehouses.find((w) => w.id === s.warehouse_id)?.name ?? ''
+  // Hujjatlarda yetkazib beruvchi sifatida o'z kompaniyasi yoziladi
+  const printRefs = { ...refs, company: sset('company_name', '') }
+
   const canShip = s.status === 'posted' && s.shipment_status !== 'shipped'
     && (can('sales.create') || can('sales.edit'))
 
@@ -60,7 +63,7 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
         phone: doc.phone,
         manager_name: doc.manager_name,
         manager_phone: null,
-        company: sset('company_name', 'Imperial Partners MChJ'),
+        company: sset('company_name', ''),
         note: doc.note,
         delivery_note: doc.delivery_address
           ? `Yetkazib berish manzili: ${doc.delivery_address}`
@@ -75,7 +78,7 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
         line_total: Number(i.line_total),
         vat_amount: Number((i as { vat_amount?: number }).vat_amount ?? 0),
       })),
-      refs,
+      printRefs,
     )
   }
 
@@ -99,10 +102,10 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" onClick={() => printSaleDoc(s, items, refs, 'waybill')}>
+          <Button size="sm" onClick={() => printSaleDoc(s, items, printRefs, 'waybill')}>
             <Printer size={14} />Yuk xati
           </Button>
-          <Button size="sm" onClick={() => printSaleDoc(s, items, refs, 'invoice')}>
+          <Button size="sm" onClick={() => printSaleDoc(s, items, printRefs, 'invoice')}>
             <Printer size={14} />Hisob-faktura
           </Button>
           <Button

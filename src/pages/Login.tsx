@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Building2, CheckCircle2, Clock, Ban, PauseCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Ban, PauseCircle, ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Logo } from '../components/Logo'
 import { useAuth } from '../lib/auth'
 import { Button, Card, ErrorBox, Field, Input, InfoBox } from '../components/ui'
 
@@ -11,13 +13,14 @@ import { Button, Card, ErrorBox, Field, Input, InfoBox } from '../components/ui'
 
 type Mode = 'login' | 'signup'
 
-export default function Login() {
+export default function Login({ startMode = 'login' }: { startMode?: Mode } = {}) {
+  const nav = useNavigate()
   const {
     signIn, signUpCompany, signOut, bootstrapOwner,
     accessState, company, noOwnerYet, profile,
   } = useAuth()
 
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(startMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -271,6 +274,9 @@ export default function Login() {
         <Button full onClick={() => { setMode('signup'); setErr('') }}>
           <CheckCircle2 size={14} />Yangi kompaniya ro'yxatdan o'tkazish
         </Button>
+        <Button variant="ghost" full onClick={() => nav('/')}>
+          <ArrowLeft size={14} />Bosh sahifa
+        </Button>
       </div>
     </Shell>
   )
@@ -282,17 +288,9 @@ function Shell({ children }: { children: React.ReactNode }) {
          style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-[420px]">
         <div className="mb-5 flex flex-col items-center gap-2 text-center">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-xl"
-            style={{ background: 'var(--brand)', color: 'var(--brand-fg)' }}
-          >
-            <Building2 size={22} />
-          </div>
-          <div>
-            <div className="text-[16px] font-semibold">Boshqaruv platformasi</div>
-            <div className="text-[12.5px]" style={{ color: 'var(--text-3)' }}>
-              Sotuv, ombor, moliya va xodimlar
-            </div>
+          <Logo size={38} />
+          <div className="text-[12.5px]" style={{ color: 'var(--text-3)' }}>
+            Sotuv, ombor, moliya va xodimlar
           </div>
         </div>
         <Card className="ip-fade">{children}</Card>

@@ -4,6 +4,7 @@ import { useAuth } from './lib/auth'
 import { WindowsProvider } from './lib/windows'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import { Empty, Loading } from './components/ui'
 
 const Dashboard    = lazy(() => import('./pages/Dashboard'))
@@ -34,7 +35,18 @@ export default function App() {
     )
   }
 
-  // Kompaniya tasdiqlanmagan yoki hisob faol emas — kirish ekranida qoladi
+  // Hisobi yo'q odam ochiq sahifani ko'radi
+  if (accessState === 'anon') {
+    return (
+      <Routes>
+        <Route path="/kirish" element={<Login startMode="login" />} />
+        <Route path="/royxat" element={<Login startMode="signup" />} />
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    )
+  }
+
+  // Kompaniya tasdiqlanmagan yoki hisob faol emas
   if (accessState !== 'ready') return <Login />
 
   return (

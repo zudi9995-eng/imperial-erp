@@ -4,6 +4,8 @@ import { dateShort, money, num } from '../lib/format'
 interface Refs {
   units: { id: number; code: string }[]
   warehouses: { id: number; name: string }[]
+  /** Hujjatda yetkazib beruvchi sifatida yoziladigan nom */
+  company?: string
 }
 
 type DocKind = 'waybill' | 'invoice'
@@ -110,7 +112,7 @@ function buildDocBody(
     <div class="head">
       <div class="box">
         <b>Yetkazib beruvchi</b>
-        Imperial Partners MChJ<br>
+        ${esc(refs.company ?? 'Kompaniya')}<br>
         Ombor: ${esc(wh)}
         ${s.manager_name ? `<br>Menejer: ${esc(s.manager_name)}` : ''}
       </div>
@@ -160,7 +162,7 @@ function buildDocBody(
     </div>
 
     <div class="note">
-      Bu hujjat Imperial Partners boshqaruv platformasidan chiqarildi.
+      Bu hujjat Sales Growth boshqaruv platformasidan chiqarildi.
       Rasmiy schyot-faktura buxgalteriya orqali rasmiylashtiriladi.
     </div>
   </div>`
@@ -362,7 +364,7 @@ export function printOrderDoc(
     <div class="head">
       <div class="box">
         <b>Yetkazib beruvchi</b>
-        Imperial Partners MChJ
+        ${esc(refs.company ?? 'Kompaniya')}
         ${o.warehouse_name ? `<br>Ombor: ${esc(o.warehouse_name)}` : ''}
         ${o.manager_name ? `<br>Menejer: ${esc(o.manager_name)}` : ''}
       </div>

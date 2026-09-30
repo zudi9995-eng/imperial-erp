@@ -16,6 +16,7 @@ import { ProductCombo, ProductPickerModal, type PickCtx, type PickedLine } from 
 import { isoDate, money, num } from '../lib/format'
 import { printOrderDoc } from './printDoc'
 import { useWindowSelf } from '../lib/windows'
+import { useSettings } from '../lib/settings'
 import DocHistory from './DocHistory'
 import CustomerSnapshot from './CustomerSnapshot'
 
@@ -62,6 +63,8 @@ export default function OrderForm({
 }) {
   const self = useWindowSelf(winKey)
   const { can, profile } = useAuth()
+  const { s: sset } = useSettings()
+  const companyName = sset('company_name', '')
   const refs = useRefs()
   const { customers } = useCustomers()
   const { products } = useProducts()
@@ -419,7 +422,7 @@ export default function OrderForm({
           line_total: Number(l.qty) * Number(l.price),
         }
       }),
-      refs,
+      { ...refs, company: companyName },
     )
   }
 

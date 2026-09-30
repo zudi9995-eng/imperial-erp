@@ -20,6 +20,7 @@ import OrdersTab from '../components/OrdersTab'
 import ReturnsTab from '../components/ReturnsTab'
 import { printManySaleDocs } from '../components/printDoc'
 import { useWindows, useSignal } from '../lib/windows'
+import { useSettings } from '../lib/settings'
 
 
 export default function Sales() {
@@ -39,6 +40,8 @@ export default function Sales() {
   const [err, setErr] = useState('')
   const [params, setParams] = useSearchParams()
   const presetCustomer = params.get('customer')
+  const { s: sset } = useSettings()
+  const companyName = sset('company_name', '')
   const { open } = useWindows()
   const salesSignal = useSignal('sales')
 
@@ -131,7 +134,7 @@ export default function Sales() {
       }
       const docs = rows.filter((r) => sel.has(r.id))
         .map((r) => ({ sale: r, items: (byId.get(r.id) ?? []) as never }))
-      printManySaleDocs(docs, refs, kind)
+      printManySaleDocs(docs, { ...refs, company: companyName }, kind)
     } finally { setPrinting(false) }
   }
 
