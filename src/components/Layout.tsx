@@ -45,7 +45,7 @@ const NAV: NavItem[] = [
 ]
 
 export default function Layout() {
-  const { profile, signOut, can, roleName } = useAuth()
+  const { profile, signOut, can, roleName, company, isPlatformAdmin } = useAuth()
   const { wins, active, activate, close, closeAll } = useWindows()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
@@ -53,6 +53,7 @@ export default function Layout() {
     () => (localStorage.getItem('ip-theme') as 'light' | 'dark' | 'auto') ?? 'auto',
   )
   const [pending, setPending] = useState(0)
+  const [waiting, setWaiting] = useState(0)
 
   useEffect(() => {
     try {
@@ -75,13 +76,25 @@ export default function Layout() {
         : Promise.resolve({ count: 0 } as { count: number | null }))
       if (!alive) return
       setPending(a.count ?? 0)
+
+      if (isPlatformAdmin) {
+        const w = await supabase.from('ip_companies')
+          .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        if (alive) setWaiting(w.count ?? 0)
+      }
     }
     void load()
     const t = setInterval(load, 60_000)
     return () => { alive = false; clearInterval(t) }
-  }, [profile, can, loc.pathname])
+  }, [profile, can, loc.pathname, isPlatformAdmin])
 
   const visible = NAV.filter((n) => can(n.perm))
+  if (isPlatformAdmin) {
+    visible.push({
+      to: '/companies', label: 'Kompaniyalar', icon: Building2,
+      perm: '', group: 'Platforma',
+    })
+  }
   const groups = [...new Set(visible.map((n) => n.group))]
 
   return (
@@ -94,8 +107,12 @@ export default function Layout() {
       >
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
           <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold leading-tight">Imperial Partners</div>
-            <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>Boshqaruv platformasi</div>
+            <div className="truncate text-[14px] font-semibold leading-tight">
+              {company?.name ?? 'Boshqaruv platformasi'}
+            </div>
+            <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+              Boshqaruv platformasi
+            </div>
           </div>
           <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Yopish">
             <X size={18} />
@@ -113,7 +130,7 @@ export default function Layout() {
               </div>
               {visible.filter((n) => n.group === g).map((n) => {
                 const Icon = n.icon
-                const badge = n.to === '/approvals' ? pending : 0
+                const badge = n.to === '/approvals' ? pending : n.to === '/companies' ? waiting : 0
                 return (
                   <NavLink
                     key={n.to}

@@ -20,12 +20,13 @@ const Tasks        = lazy(() => import('./pages/Tasks'))
 const Finance      = lazy(() => import('./pages/Finance'))
 const Hr           = lazy(() => import('./pages/Hr'))
 const Approvals    = lazy(() => import('./pages/Approvals'))
+const Companies    = lazy(() => import('./pages/Companies'))
 const Ai           = lazy(() => import('./pages/Ai'))
 
 export default function App() {
-  const { session, profile, loading, can } = useAuth()
+  const { accessState, can, isPlatformAdmin } = useAuth()
 
-  if (loading) {
+  if (accessState === 'loading') {
     return (
       <div className="flex h-full items-center justify-center" style={{ background: 'var(--bg)' }}>
         <Loading label="Tekshirilmoqda…" />
@@ -33,7 +34,8 @@ export default function App() {
     )
   }
 
-  if (!session || !profile) return <Login />
+  // Kompaniya tasdiqlanmagan yoki hisob faol emas — kirish ekranida qoladi
+  if (accessState !== 'ready') return <Login />
 
   return (
     <WindowsProvider>
@@ -60,6 +62,10 @@ export default function App() {
           />
           <Route path="/hr"        element={<Hr />} />
           <Route path="/approvals" element={<Approvals />} />
+          <Route
+            path="/companies"
+            element={<Guard allow={isPlatformAdmin}><Companies /></Guard>}
+          />
           <Route
             path="/settings"
             element={<Guard allow={can('view.settings')}><SettingsPage /></Guard>}
