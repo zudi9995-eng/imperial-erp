@@ -121,7 +121,13 @@ export function translateDbError(msg: string): string {
   if (m.includes('duplicate key')) return 'Bu qiymat allaqachon mavjud'
   if (m.includes('still referenced')) return "O'chirib bo'lmaydi: bog'langan hujjatlar bor"
   if (m.includes('violates foreign key')) return "Bog'langan yozuv topilmadi"
-  if (m.includes('violates not-null')) return "To'ldirilishi shart bo'lgan maydon bo'sh"
+  if (m.includes('violates not-null')) {
+    // Qaysi ustun ekanini ko'rsatamiz — aks holda qidirib topib bo'lmaydi
+    const col = /column "([^"]+)"/i.exec(msg)?.[1]
+    return col
+      ? `To'ldirilishi shart bo'lgan maydon bo'sh: ${col}`
+      : "To'ldirilishi shart bo'lgan maydon bo'sh"
+  }
   if (m.includes('row-level security') || m.includes('permission denied')) {
     return "Ruxsat yo'q — bu amalni faqat ta'sischi bajaradi"
   }
