@@ -117,6 +117,26 @@ export default function Login({ startMode = 'login' }: { startMode?: Mode } = {}
     )
   }
 
+  /* ---------------- Profil bor, kompaniya biriktirilmagan ---------------- */
+  if (accessState === 'orphan') {
+    return (
+      <Shell>
+        <h2 className="mb-1 text-[17px] font-semibold">Kompaniya biriktirilmagan</h2>
+        <p className="mb-3 text-[13px]" style={{ color: 'var(--text-2)' }}>
+          {profile?.full_name}, hisobingiz bor, lekin hech qaysi kompaniyaga
+          bog'lanmagan.
+        </p>
+        <InfoBox tone="warn">
+          Kompaniyangiz ta'sischisiga murojaat qiling — u Xodimlar bo'limida
+          hisobingizni biriktirib qo'yadi.
+        </InfoBox>
+        <Button variant="ghost" full className="mt-3" onClick={() => void signOut()}>
+          Chiqish
+        </Button>
+      </Shell>
+    )
+  }
+
   /* ---------------- Auth bor, profil yo'q ---------------- */
   if (accessState === 'no_profile') {
     return (

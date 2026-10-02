@@ -11,7 +11,6 @@ import { Badge, Button } from './ui'
 import { initials } from '../lib/format'
 import MoneyBar from './MoneyBar'
 import DocWindows from './DocWindows'
-import NotifyBell from './NotifyBell'
 import { Logo, LogoMark } from './Logo'
 import { useWindows } from '../lib/windows'
 
@@ -231,7 +230,6 @@ export default function Layout() {
             </div>
           </div>
           <div className="flex gap-1.5">
-            <span className="hidden items-center px-1 lg:flex"><NotifyBell /></span>
             <Button
               size="sm" variant="subtle" className="flex-1"
               title="Tema"
@@ -265,7 +263,6 @@ export default function Layout() {
         >
           <button onClick={() => setOpen(true)} aria-label="Menyu"><Menu size={20} /></button>
           <Logo size={24} />
-          <span className="ml-auto"><NotifyBell compact /></span>
         </header>
 
         <MoneyBar />

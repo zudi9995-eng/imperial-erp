@@ -47,7 +47,7 @@ export interface CompanyInfo {
 }
 
 export type AccessState =
-  | 'loading' | 'anon' | 'no_profile' | 'pending'
+  | 'loading' | 'anon' | 'no_profile' | 'orphan' | 'pending'
   | 'rejected' | 'suspended' | 'inactive' | 'ready'
 
 const Ctx = createContext<AuthState | null>(null)
@@ -252,7 +252,10 @@ function computeAccess(
   if (loading) return 'loading'
   if (!session) return 'anon'
   if (!profile) return 'no_profile'
-  if (!company) return 'no_profile'
+  // Profil bor, lekin kompaniyasi yo'q — bu xodim. Unga kompaniya
+  // ro'yxatdan o'tkazish taklif qilinmaydi, aks holda o'zini alohida
+  // kompaniya qilib qo'yadi.
+  if (!company) return 'orphan'
   if (company.status === 'pending') return 'pending'
   if (company.status === 'rejected') return 'rejected'
   if (company.status === 'suspended') return 'suspended'
