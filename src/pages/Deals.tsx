@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Handshake, Plus, Trash2, TrendingUp } from 'lucide-react'
+import { ArrowRight, Handshake, Plus, Trash2, TrendingUp, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useCustomers, useRefs, translateDbError } from '../lib/useRefs'
 import { useWindows } from '../lib/windows'
 import {
-  Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal,
+  Badge, Button, Card, Empty, ErrorBox, Field, InfoBox, Input, Loading, Modal,
   PageHeader, Select, Stat, Textarea,
 } from '../components/ui'
 import { DocTable, DocTd, DocTh, DocTr, type RowTone } from '../components/docList'
@@ -19,7 +19,11 @@ import { dateShort, isoDate, money, moneyShort, pct, relativeDays } from '../lib
 
 interface Deal {
   id: number
-  customer_id: number
+  /** Mijoz kartochkasi hali bo'lmasligi mumkin — lid shunchaki voronkada turadi */
+  customer_id: number | null
+  lead_name: string | null
+  lead_phone: string | null
+  lead_inn: string | null
   title: string
   stage_id: number | null
   amount: number
@@ -46,6 +50,7 @@ export default function Deals() {
   const [err, setErr] = useState('')
   const [edit, setEdit] = useState<Deal | 'new' | null>(null)
   const [closing, setClosing] = useState<{ deal: Deal; won: boolean } | null>(null)
+  const [convert, setConvert] = useState<Deal | null>(null)
 
   const load = useCallback(async () => {
     const [d, l] = await Promise.all([
@@ -77,7 +82,8 @@ export default function Deals() {
     deals: openDeals.filter((d) => d.stage_id === s.id),
   })), [stages, openDeals])
 
-  const custOf = (cid: number) => customers.find((c) => c.id === cid)?.name ?? `#${cid}`
+  const custOf = (cid: number | null) =>
+    cid == null ? null : (customers.find((c) => c.id === cid)?.name ?? `#${cid}`)
   const mgrOf = (uid: string | null) =>
     refs.profiles.find((p) => p.id === uid)?.full_name ?? '—'
 
@@ -226,7 +232,19 @@ export default function Deals() {
                           </div>
                         )}
                       </DocTd>
-                      <DocTd tone="link">{custOf(d.customer_id)}</DocTd>
+                      <DocTd tone={d.customer_id ? 'link' : 'normal'} stopClick>
+                        {d.customer_id ? custOf(d.customer_id) : (
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span>{d.lead_name ?? '—'}</span>
+                            <Badge tone="info">lid</Badge>
+                            {!d.closed_at && (
+                              <Button size="sm" variant="ghost" onClick={() => setConvert(d)}>
+                                <UserPlus size={13} />Mijozga o'tkazish
+                              </Button>
+                            )}
+                          </span>
+                        )}
+                      </DocTd>
                       <DocTd stopClick>
                         {d.closed_at ? (
                           <span style={{ color: 'var(--text-3)' }}>{st?.name ?? '—'}</span>
@@ -306,9 +324,16 @@ export default function Deals() {
       {closing && (
         <CloseModal
           deal={closing.deal} won={closing.won} lossReasons={lossReasons}
-          customerName={custOf(closing.deal.customer_id)}
+          customerName={custOf(closing.deal.customer_id) ?? closing.deal.lead_name ?? '—'}
           onClose={() => setClosing(null)}
           onDone={() => { setClosing(null); void load() }}
+        />
+      )}
+      {convert && (
+        <ConvertModal
+          deal={convert}
+          onClose={() => setConvert(null)}
+          onDone={() => { setConvert(null); void load() }}
         />
       )}
     </div>
@@ -331,6 +356,10 @@ function DealModal({
 }) {
   const [title, setTitle] = useState(deal?.title ?? '')
   const [customer, setCustomer] = useState<number | null>(deal?.customer_id ?? null)
+  // Mijoz kartochkasi hali yo'q bo'lsa lid shu maydonlarda turadi
+  const [leadName, setLeadName] = useState(deal?.lead_name ?? '')
+  const [leadPhone, setLeadPhone] = useState(deal?.lead_phone ?? '')
+  const [leadInn, setLeadInn] = useState(deal?.lead_inn ?? '')
   const [stage, setStage] = useState<number | null>(deal?.stage_id ?? stages[0]?.id ?? null)
   const [amount, setAmount] = useState(deal ? String(deal.amount) : '')
   const [manager, setManager] = useState(deal?.manager_id ?? myId)
@@ -341,12 +370,18 @@ function DealModal({
 
   async function save() {
     if (!title.trim()) { setErr('Nomi kiritilmagan'); return }
-    if (!customer) { setErr('Mijoz tanlanmagan'); return }
+    if (!customer && !leadName.trim()) {
+      setErr("Mijozni tanlang yoki lid nomini yozing")
+      return
+    }
     setBusy(true); setErr('')
     const st = stages.find((s) => s.id === stage)
     const payload = {
       title: title.trim(),
       customer_id: customer,
+      lead_name: customer ? null : leadName.trim(),
+      lead_phone: customer ? null : (leadPhone.trim() || null),
+      lead_inn: customer ? null : (leadInn.trim() || null),
       stage_id: stage,
       amount: Number(amount) || 0,
       probability: st?.probability ?? null,
@@ -378,14 +413,36 @@ function DealModal({
           <Input value={title} onChange={setTitle}
                  placeholder="Masalan: Yangi turar-joy obyekti — gipsokarton" />
         </Field>
+        <Field
+          label="Mijoz"
+          hint="Mijoz kartochkasi hali bo'lmasa bo'sh qoldiring — pastda lid ma'lumotini yozasiz"
+        >
+          <Select
+            value={customer ?? ''} onChange={(v) => setCustomer(v ? Number(v) : null)}
+            placeholder="— mijoz yo'q, bu lid —"
+            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          />
+        </Field>
+
+        {!customer && (
+          <div className="rounded-lg border p-3"
+               style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
+            <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide"
+                 style={{ color: 'var(--text-3)' }}>
+              Lid ma'lumoti
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Nomi" required>
+                <Input value={leadName} onChange={setLeadName}
+                       placeholder="Masalan: Oq Yo'l Savdo MChJ" />
+              </Field>
+              <Field label="Telefon"><Input value={leadPhone} onChange={setLeadPhone} /></Field>
+              <Field label="STIR"><Input value={leadInn} onChange={setLeadInn} /></Field>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Mijoz" required>
-            <Select
-              value={customer ?? ''} onChange={(v) => setCustomer(v ? Number(v) : null)}
-              placeholder="Tanlang…"
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </Field>
           <Field label="Bosqich">
             <Select
               value={stage ?? ''} onChange={(v) => setStage(v ? Number(v) : null)}
@@ -464,10 +521,19 @@ function CloseModal({
         </div>
 
         {won ? (
-          <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
-            Imkoniyat yopiladi. Sotuvni Sotuv bo'limidan rasmiylashtirasiz —
-            keyin shu imkoniyatga bog'lanadi.
-          </p>
+          <>
+            <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
+              Imkoniyat yopiladi. Sotuvni Sotuv bo'limidan rasmiylashtirasiz —
+              keyin shu imkoniyatga bog'lanadi.
+            </p>
+            {!deal.customer_id && (
+              <InfoBox tone="warn">
+                Bu lid hali mijozga o'tkazilmagan. Sotuv rasmiylashtirish uchun
+                mijoz kartochkasi kerak — yopishdan oldin «Mijozga o'tkazish» ni
+                bosganingiz ma'qul.
+              </InfoBox>
+            )}
+          </>
         ) : (
           <Field label="Nega yo'qotildi" required>
             <Select
@@ -481,6 +547,83 @@ function CloseModal({
         <Field label="Izoh">
           <Textarea value={note} onChange={setNote} rows={3} />
         </Field>
+        {err && <ErrorBox>{err}</ErrorBox>}
+      </div>
+    </Modal>
+  )
+}
+
+/* ---------------------------------------------------------------- */
+
+/**
+ * Lidni mijozga o'tkazish.
+ *
+ * Shu nomdagi yoki STIRdagi mijoz allaqachon bo'lsa, yangisi
+ * yaratilmaydi — imkoniyat mavjudiga bog'lanadi.
+ */
+function ConvertModal({
+  deal, onClose, onDone,
+}: { deal: Deal; onClose: () => void; onDone: () => void }) {
+  const [name, setName] = useState(deal.lead_name ?? '')
+  const [phone, setPhone] = useState(deal.lead_phone ?? '')
+  const [inn, setInn] = useState(deal.lead_inn ?? '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [res, setRes] = useState<{ created: boolean; name: string } | null>(null)
+
+  async function run() {
+    if (!name.trim()) { setErr('Nomi kiritilmagan'); return }
+    setBusy(true); setErr('')
+    const { data, error } = await supabase.rpc('ip_deal_to_customer', {
+      p_deal: deal.id,
+      p_name: name.trim(),
+      p_phone: phone.trim() || null,
+      p_inn: inn.trim() || null,
+    })
+    setBusy(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    setRes(data as { created: boolean; name: string })
+  }
+
+  if (res) {
+    return (
+      <Modal
+        open onClose={onDone} width={440} title="Mijozga o'tkazildi"
+        footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}
+      >
+        <InfoBox tone="ok">
+          {res.created
+            ? <><b>{res.name}</b> mijoz sifatida yaratildi va imkoniyat unga bog'landi.</>
+            : <><b>{res.name}</b> allaqachon mijozlar ro'yxatida edi — imkoniyat
+                o'shanga bog'landi, nusxa yaratilmadi.</>}
+        </InfoBox>
+      </Modal>
+    )
+  }
+
+  return (
+    <Modal
+      open onClose={onClose} width={520}
+      title="Lidni mijozga o'tkazish"
+      footer={<>
+        <Button variant="ghost" disabled={busy} onClick={onClose}>Bekor</Button>
+        <Button variant="primary" loading={busy} onClick={() => void run()}>
+          <UserPlus size={14} />O'tkazish
+        </Button>
+      </>}
+    >
+      <div className="space-y-3">
+        <InfoBox>
+          Mijoz kartochkasi yaratiladi va voronkadagi <b>{deal.title}</b> unga
+          bog'lanadi. Shu STIR yoki nomdagi mijoz bo'lsa, nusxa yaratilmaydi.
+        </InfoBox>
+        <Field label="Mijoz nomi" required>
+          <Input value={name} onChange={setName} autoFocus />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Telefon"><Input value={phone} onChange={setPhone} /></Field>
+          <Field label="STIR"><Input value={inn} onChange={setInn} /></Field>
+        </div>
         {err && <ErrorBox>{err}</ErrorBox>}
       </div>
     </Modal>
