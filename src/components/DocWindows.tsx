@@ -1,9 +1,15 @@
+import { Suspense, lazy } from 'react'
 import { useWindows } from '../lib/windows'
-import OrderForm from './OrderForm'
-import SaleDetail from './SaleDetail'
-import SaleForm from './SaleForm'
-import PurchaseForm from './PurchaseForm'
-import ReturnForm from './ReturnForm'
+import { Loading } from './ui'
+
+// Hujjat formalari — jami 4000 qatordan ortiq. Ular faqat oyna
+// ochilganda kerak, shuning uchun alohida yuklanadi: aks holda
+// platformaning birinchi ochilishi shuncha kodni kutib turardi.
+const OrderForm    = lazy(() => import('./OrderForm'))
+const SaleDetail   = lazy(() => import('./SaleDetail'))
+const SaleForm     = lazy(() => import('./SaleForm'))
+const PurchaseForm = lazy(() => import('./PurchaseForm'))
+const ReturnForm   = lazy(() => import('./ReturnForm'))
 
 /**
  * Ochiq hujjat oynalari. Hammasi bir vaqtda DOM da turadi — faqat
@@ -17,6 +23,7 @@ export default function DocWindows() {
     <>
       {wins.map((w) => (
         <div key={w.key} style={{ display: w.key === active ? 'block' : 'none' }}>
+          <Suspense fallback={<Loading />}>
           {w.kind === 'order' && (
             <OrderForm
               winKey={w.key}
@@ -67,6 +74,7 @@ export default function DocWindows() {
               })}
             />
           )}
+          </Suspense>
         </div>
       ))}
     </>

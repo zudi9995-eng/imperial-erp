@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useShared } from './shared'
 import { supabase } from './supabase'
 import type {
   CashAccount, Category, Customer, PaymentTerm, PipelineStage, PriceTier,
@@ -18,14 +18,21 @@ export interface Refs {
   reload: () => Promise<void>
 }
 
-/** Spravochniklar — sahifa ochilganda bir marta yuklanadi. */
-export function useRefs(): Refs {
-  const [state, setState] = useState<Omit<Refs, 'reload'>>({
-    warehouses: [], categories: [], units: [], tiers: [], terms: [],
-    accounts: [], stages: [], profiles: [], loading: true,
-  })
+/**
+ * Spravochniklar.
+ *
+ * Bu ilgakni 19 ta komponent chaqiradi, ochiq hujjat oynalari esa
+ * mount bo'lib turadi — shuning uchun ma'lumot umumiy keshdan olinadi
+ * va so'rov bir marta ketadi (src/lib/shared.ts).
+ */
 
-  const reload = useCallback(async () => {
+const EMPTY_REFS: Omit<Refs, 'reload' | 'loading'> = {
+  warehouses: [], categories: [], units: [], tiers: [], terms: [],
+  accounts: [], stages: [], profiles: [],
+}
+
+export function useRefs(): Refs {
+  const { data, loading, reload } = useShared('refs', async () => {
     const [w, c, u, t, pt, a, st, pr] = await Promise.all([
       supabase.from('ip_warehouses').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('ip_categories').select('*').eq('is_active', true).order('sort_order'),
@@ -36,7 +43,7 @@ export function useRefs(): Refs {
       supabase.from('ip_pipeline_stages').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('ip_profiles').select('*').eq('is_active', true).order('full_name'),
     ])
-    setState({
+    return {
       warehouses: (w.data as Warehouse[]) ?? [],
       categories: (c.data as Category[]) ?? [],
       units:      (u.data as Unit[]) ?? [],
@@ -45,60 +52,43 @@ export function useRefs(): Refs {
       accounts:   (a.data as CashAccount[]) ?? [],
       stages:     (st.data as PipelineStage[]) ?? [],
       profiles:   (pr.data as Profile[]) ?? [],
-      loading: false,
-    })
-  }, [])
+    }
+  }, EMPTY_REFS)
 
-  useEffect(() => { void reload() }, [reload])
-
-  return { ...state, reload }
+  return { ...data, loading, reload }
 }
+
+const EMPTY_PRODUCTS: Product[] = []
+const EMPTY_CUSTOMERS: Customer[] = []
+const EMPTY_SUPPLIERS: Supplier[] = []
 
 /** Tovarlar ro'yxati (qidiruv uchun) */
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const reload = useCallback(async () => {
+  const { data, loading, reload } = useShared('products', async () => {
     const { data } = await supabase
       .from('ip_products').select('*').eq('is_active', true).order('name')
-    setProducts((data as Product[]) ?? [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { void reload() }, [reload])
-  return { products, loading, reload }
+    return (data as Product[]) ?? []
+  }, EMPTY_PRODUCTS)
+  return { products: data, loading, reload }
 }
 
 /** Mijozlar (RLS o'zi menejernikini filtrlaydi) */
 export function useCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const reload = useCallback(async () => {
+  const { data, loading, reload } = useShared('customers', async () => {
     const { data } = await supabase
       .from('ip_customers').select('*').eq('is_active', true).order('name')
-    setCustomers((data as Customer[]) ?? [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { void reload() }, [reload])
-  return { customers, loading, reload }
+    return (data as Customer[]) ?? []
+  }, EMPTY_CUSTOMERS)
+  return { customers: data, loading, reload }
 }
 
 export function useSuppliers() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const reload = useCallback(async () => {
+  const { data, loading, reload } = useShared('suppliers', async () => {
     const { data } = await supabase
       .from('ip_suppliers').select('*').eq('is_active', true).order('name')
-    setSuppliers((data as Supplier[]) ?? [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { void reload() }, [reload])
-  return { suppliers, loading, reload }
+    return (data as Supplier[]) ?? []
+  }, EMPTY_SUPPLIERS)
+  return { suppliers: data, loading, reload }
 }
 
 /** Amaldagi narxlar: product_id -> tier_id -> narx */

@@ -3,6 +3,7 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { clearShared } from './shared'
 import type { Profile, Role } from './types'
 
 interface AuthState {
@@ -135,6 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, s) => {
       if (!alive) return
+      // Spravochnik keshi foydalanuvchiga bog'liq (RLS menejerga faqat
+      // o'z mijozini ko'rsatadi) — kirish/chiqishda tozalanadi
+      if (_evt === 'SIGNED_IN' || _evt === 'SIGNED_OUT' || _evt === 'USER_UPDATED') {
+        clearShared()
+      }
       setSession(s)
       if (s?.user) {
         await loadProfile(s.user.id)
@@ -178,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async signOut() {
       await supabase.auth.signOut()
+      clearShared()
       setProfile(null)
       setCompany(null)
     },

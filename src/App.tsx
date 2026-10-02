@@ -2,10 +2,14 @@ import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import { WindowsProvider } from './lib/windows'
-import Layout from './components/Layout'
-import Login from './pages/Login'
-import Landing from './pages/Landing'
 import { Empty, Loading } from './components/ui'
+
+// Qobiq, kirish va ochiq sahifa — uchalasi bir vaqtda hech qachon
+// kerak bo'lmaydi. Kirgan odam ochiq sahifani, kirmagan odam esa
+// butun ilova qobig'ini yuklab o'tirmasin.
+const Layout  = lazy(() => import('./components/Layout'))
+const Login   = lazy(() => import('./pages/Login'))
+const Landing = lazy(() => import('./pages/Landing'))
 
 const Dashboard    = lazy(() => import('./pages/Dashboard'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
@@ -25,6 +29,14 @@ const ArchivePage  = lazy(() => import('./pages/Archive'))
 const Companies    = lazy(() => import('./pages/Companies'))
 const Ai           = lazy(() => import('./pages/Ai'))
 
+function FullLoading() {
+  return (
+    <div className="flex h-full items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <Loading />
+    </div>
+  )
+}
+
 export default function App() {
   const { accessState, can, isPlatformAdmin } = useAuth()
 
@@ -39,16 +51,20 @@ export default function App() {
   // Hisobi yo'q odam ochiq sahifani ko'radi
   if (accessState === 'anon') {
     return (
-      <Routes>
-        <Route path="/kirish" element={<Login startMode="login" />} />
-        <Route path="/royxat" element={<Login startMode="signup" />} />
-        <Route path="*" element={<Landing />} />
-      </Routes>
+      <Suspense fallback={<FullLoading />}>
+        <Routes>
+          <Route path="/kirish" element={<Login startMode="login" />} />
+          <Route path="/royxat" element={<Login startMode="signup" />} />
+          <Route path="*" element={<Landing />} />
+        </Routes>
+      </Suspense>
     )
   }
 
   // Kompaniya tasdiqlanmagan yoki hisob faol emas
-  if (accessState !== 'ready') return <Login />
+  if (accessState !== 'ready') {
+    return <Suspense fallback={<FullLoading />}><Login /></Suspense>
+  }
 
   return (
     <WindowsProvider>

@@ -22,6 +22,14 @@ const KEY = 'ip-lang'
 /** Joriy til — jsx-runtime shu o'zgaruvchini o'qiydi */
 let current: Lang = readStored()
 
+type Global = {
+  __ipTranslate?: (s: string) => string
+  __ipNeedsTr?: boolean
+}
+
+/** JSX qatlami shu bayroqni ko'rib ortiqcha ish qilmaydi */
+function syncFlag() { (globalThis as Global).__ipNeedsTr = current === 'ru' }
+
 function readStored(): Lang {
   try {
     return localStorage.getItem(KEY) === 'ru' ? 'ru' : 'uz'
@@ -59,7 +67,8 @@ export function getLang(): Lang { return current }
 
 // JSX ishlab chiqaruvchi shu nuqtadan o'qiydi. Import orqali emas,
 // chunki Vite uni alohida to'plasa modul ikki nusxa bo'lib qoladi.
-;(globalThis as { __ipTranslate?: (s: string) => string }).__ipTranslate = translate
+;(globalThis as Global).__ipTranslate = translate
+syncFlag()
 
 interface LangState {
   lang: Lang
@@ -76,6 +85,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
 
   const setLang = useCallback((l: Lang) => {
     current = l
+    syncFlag()
     try { localStorage.setItem(KEY, l) } catch { /* yopiq bo'lsa ham mayli */ }
     document.documentElement.lang = l
     setLangState(l)

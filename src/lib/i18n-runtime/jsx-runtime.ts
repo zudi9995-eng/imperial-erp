@@ -19,7 +19,11 @@ import { jsx as reactJsx, jsxs as reactJsxs, Fragment } from 'react/jsx-runtime'
  * yerga qo'yadi.
  */
 
-type Global = { __ipTranslate?: (s: string) => string }
+type Global = {
+  __ipTranslate?: (s: string) => string
+  /** Tarjima kerakmi — o'zbek tilida butun qatlam chetlab o'tiladi */
+  __ipNeedsTr?: boolean
+}
 
 function translate(s: string): string {
   const fn = (globalThis as Global).__ipTranslate
@@ -49,7 +53,9 @@ function tr(v: unknown): unknown {
 }
 
 export function fixProps(props: Props): Props {
-  if (!props) return props
+  // Bu funksiya har bir JSX elementi uchun chaqiriladi, shuning uchun
+  // o'zbek tilida darhol chiqamiz — ortiqcha ish qilmaymiz.
+  if (!props || !(globalThis as Global).__ipNeedsTr) return props
   let out: Record<string, unknown> | null = null
 
   const kids = (props as Record<string, unknown>).children
