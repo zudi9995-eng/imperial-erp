@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   PhoneCall, Wallet, AlertTriangle, ArrowDownLeft, Search, RefreshCw,
-  Banknote, MessageSquarePlus, CheckCircle2, Clock,
+  Banknote, MessageSquarePlus, CheckCircle2, Clock, BellRing,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -31,6 +31,8 @@ export default function Receivables() {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [reminding, setReminding] = useState(false)
+  const [remindMsg, setRemindMsg] = useState('')
   const [payFor, setPayFor] = useState<ArCustomer | null>(null)
   const [callFor, setCallFor] = useState<ArCustomer | null>(null)
 
@@ -47,6 +49,22 @@ export default function Receivables() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  /**
+   * Eslatmalar har kuni ertalab o'zi yuriladi; bu tugma shuni qo'lda
+   * ishga tushiradi. Bir hujjat bo'yicha xabar ikkilanmaydi.
+   */
+  async function runReminders() {
+    setReminding(true); setRemindMsg(''); setErr('')
+    const { data, error } = await supabase.rpc('ip_run_debt_reminders', { p_company: null })
+    setReminding(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    const r = data as { notifications: number; tasks: number }
+    setRemindMsg(r.notifications === 0 && r.tasks === 0
+      ? 'Yangi eslatma yo‘q — hammasi allaqachon yuborilgan.'
+      : `${r.notifications} ta eslatma yuborildi, ${r.tasks} ta qo‘ng‘iroq vazifasi yaratildi.`)
+    await load()
+  }
 
   const sum = useMemo(() => {
     const owing = rows.filter((r) => r.net_base > 0)
@@ -84,8 +102,21 @@ export default function Receivables() {
       <PageHeader
         title="Debitor"
         sub={`${dateUz(new Date())} · avans hisobga olingan holda`}
-        actions={<Button size="sm" onClick={() => void load()}><RefreshCw size={14} />Yangilash</Button>}
+        actions={
+          <>
+            <Button
+              size="sm" loading={reminding}
+              title="Muddati yaqin va o'tgan qarzlar bo'yicha menejerlarga eslatma yuboradi"
+              onClick={() => void runReminders()}
+            >
+              <BellRing size={14} />Eslatmalarni yuborish
+            </Button>
+            <Button size="sm" onClick={() => void load()}><RefreshCw size={14} />Yangilash</Button>
+          </>
+        }
       />
+
+      {remindMsg && <div className="mb-4"><InfoBox tone="ok">{remindMsg}</InfoBox></div>}
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}
 

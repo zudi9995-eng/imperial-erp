@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, Users, UserCheck, Phone, ArrowLeft, Pencil, MessageSquarePlus,
-  FileText, ShoppingCart, Wallet, TrendingUp, Clock, AlertTriangle,
+  FileText, ShoppingCart, Wallet, TrendingUp, Clock, AlertTriangle, Link2, Check,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -322,6 +322,7 @@ function CustomerCard({ id, onBack }: { id: number; onBack: () => void }) {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
 
   const load = useCallback(async () => {
     const [a, b, s, ac, ct] = await Promise.all([
@@ -373,9 +374,18 @@ function CustomerCard({ id, onBack }: { id: number; onBack: () => void }) {
             <Button size="sm"><Wallet size={14} />Debitor</Button>
           </Link>
           <Button size="sm" onClick={() => setNoteOpen(true)}><MessageSquarePlus size={14} />Aloqa</Button>
+          {isOwner && <Button size="sm" onClick={() => setPortalOpen(true)}><Link2 size={14} />Kabinet havolasi</Button>}
           {isOwner && <Button size="sm" onClick={() => setEditing(true)}><Pencil size={14} />Tahrirlash</Button>}
         </div>
       </div>
+
+      {portalOpen && (
+        <PortalModal
+          customer={c}
+          onClose={() => setPortalOpen(false)}
+          onDone={() => { setPortalOpen(false); void load() }}
+        />
+      )}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
@@ -765,6 +775,108 @@ function CustomerModal({
         </div>
         <Field label="Izoh"><Textarea value={d.note ?? ''} onChange={(v) => set('note', v)} rows={2} /></Field>
         <Toggle checked={d.is_active ?? true} onChange={(v) => set('is_active', v)} label="Faol" />
+        {err && <ErrorBox>{err}</ErrorBox>}
+      </div>
+    </Modal>
+  )
+}
+
+/* ---------------------------------------------------------------- */
+
+/**
+ * Mijoz kabineti havolasi.
+ *
+ * Havola parolsiz ochiladi, shuning uchun himoya butunlay kalitda.
+ * "Yangilash" bosilsa eski havola o'sha zahoti ishlamay qoladi —
+ * telefon almashgan yoki havola begonaga tushgan paytda shu kerak.
+ */
+function PortalModal({
+  customer, onClose, onDone,
+}: {
+  customer: Customer & { portal_token?: string | null; portal_enabled?: boolean }
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [token, setToken] = useState(customer.portal_token ?? '')
+  const [enabled, setEnabled] = useState(Boolean(customer.portal_enabled))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const url = token ? `${window.location.origin}/kabinet/${token}` : ''
+
+  async function create() {
+    setBusy(true); setErr('')
+    const { data, error } = await supabase.rpc('ip_portal_token', {
+      p_customer: customer.id, p_enable: true,
+    })
+    setBusy(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    setToken(String(data)); setEnabled(true); setCopied(false)
+  }
+
+  async function disable() {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('ip_portal_token', {
+      p_customer: customer.id, p_enable: false,
+    })
+    setBusy(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    setEnabled(false)
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {
+      setErr('Nusxa olinmadi — havolani qo‘lda belgilab oling')
+    }
+  }
+
+  return (
+    <Modal
+      open onClose={onClose} width={560} title="Mijoz kabineti havolasi"
+      footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}
+    >
+      <div className="space-y-3">
+        <InfoBox>
+          Mijoz shu havola orqali o'z qarzini, to'lanmagan hujjatlarini va
+          yuk holatini ko'radi. Parol kerak emas. Tan narx, marja va boshqa
+          ichki raqamlar <b>ko'rinmaydi</b>.
+        </InfoBox>
+
+        {enabled && token ? (
+          <>
+            <Field label="Havola">
+              <Input value={url} onChange={() => {}} />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="primary" onClick={() => void copy()}>
+                {copied ? <><Check size={14} />Nusxa olindi</> : <>Nusxa olish</>}
+              </Button>
+              <Button size="sm" loading={busy} onClick={() => void create()}
+                      title="Eski havola darhol ishlamay qoladi">
+                Yangilash
+              </Button>
+              <Button size="sm" variant="ghost" loading={busy} onClick={() => void disable()}>
+                O'chirish
+              </Button>
+            </div>
+            <InfoBox tone="warn">
+              Havolani bilgan har kim bu ma'lumotni ko'ra oladi. Begonaga
+              tushgan bo'lsa «Yangilash» ni bosing — eskisi o'sha zahoti
+              ishlamay qoladi.
+            </InfoBox>
+          </>
+        ) : (
+          <div className="py-2">
+            <Button variant="primary" loading={busy} onClick={() => void create()}>
+              <Link2 size={14} />Havola yaratish
+            </Button>
+          </div>
+        )}
+
         {err && <ErrorBox>{err}</ErrorBox>}
       </div>
     </Modal>

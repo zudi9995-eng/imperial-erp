@@ -10,6 +10,7 @@ import { Empty, Loading } from './components/ui'
 const Layout  = lazy(() => import('./components/Layout'))
 const Login   = lazy(() => import('./pages/Login'))
 const Landing = lazy(() => import('./pages/Landing'))
+const Portal  = lazy(() => import('./pages/Portal'))
 
 const Dashboard    = lazy(() => import('./pages/Dashboard'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
@@ -39,6 +40,18 @@ function FullLoading() {
 
 export default function App() {
   const { accessState, can, isPlatformAdmin } = useAuth()
+
+  // Mijoz kabineti kirishdan butunlay mustaqil: havola bilan ochiladi
+  // va foydalanuvchi tizimga kirgan-kirmaganiga bog'liq emas.
+  if (window.location.pathname.startsWith('/kabinet/')) {
+    return (
+      <Suspense fallback={<FullLoading />}>
+        <Routes>
+          <Route path="/kabinet/:token" element={<Portal />} />
+        </Routes>
+      </Suspense>
+    )
+  }
 
   if (accessState === 'loading') {
     return (
