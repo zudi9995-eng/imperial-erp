@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Pencil, Tag, Check, X } from 'lucide-react'
+import { Plus, Search, Pencil, Tag, Check, X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useRefs } from '../lib/useRefs'
@@ -11,6 +11,23 @@ import {
 } from '../components/ui'
 import { money, num, pct } from '../lib/format'
 import DeleteDocButton from '../components/DeleteDoc'
+import ImportWizard from '../components/ImportWizard'
+import { normalizeRows, type SheetField } from '../lib/sheet'
+
+/** Excel faylda qidiriladigan ustunlar — uz, ru va 1C nomlari bilan */
+const PRODUCT_FIELDS: SheetField[] = [
+  { key: 'code', label: 'Kod', aliases: ['код', 'article', 'артикул', 'sku'],
+    hint: "Bo'sh bo'lsa nom bo'yicha qidiriladi" },
+  { key: 'name', label: 'Nomi', required: true,
+    aliases: ['наименование', 'номенклатура', 'tovar', 'name', 'товар'] },
+  { key: 'category', label: 'Toifa', aliases: ['категория', 'группа', 'kategoriya', 'guruh'],
+    hint: 'Topilmasa yangi toifa yaratiladi' },
+  { key: 'unit', label: 'Birlik', aliases: ['ед изм', 'единица', 'unit', 'olchov'] },
+  { key: 'price', label: 'Narx', aliases: ['цена', 'price', 'sotuv narxi', 'цена продажи'] },
+  { key: 'barcode', label: 'Shtrix-kod', aliases: ['штрихкод', 'barcode', 'ean'] },
+  { key: 'min_qty', label: 'Eng kam qoldiq', aliases: ['мин остаток', 'min qoldiq'] },
+  { key: 'note', label: 'Izoh', aliases: ['примечание', 'comment', 'izoh'] },
+]
 
 interface PriceRow { product_id: number; tier_id: number; price: number }
 
@@ -20,6 +37,7 @@ export default function Products() {
   const [items, setItems] = useState<Product[]>([])
   const [prices, setPrices] = useState<PriceRow[]>([])
   const [q, setQ] = useState('')
+  const [importing, setImporting] = useState(false)
   const [cat, setCat] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -66,10 +84,35 @@ export default function Products() {
         title="Tovar va narx"
         sub={`${items.length} pozitsiya · narxlar mijoz toifasi bo'yicha`}
         actions={isOwner && (
-          <Button variant="primary" size="sm" onClick={() => setEdit({ is_active: true, is_stocked: true })}>
-            <Plus size={14} />Yangi tovar
-          </Button>
+          <>
+            <Button size="sm" onClick={() => setImporting(true)}>
+              <Upload size={14} />Exceldan yuklash
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setEdit({ is_active: true, is_stocked: true })}>
+              <Plus size={14} />Yangi tovar
+            </Button>
+          </>
         )}
+      />
+
+      <ImportWizard
+        open={importing}
+        onClose={() => setImporting(false)}
+        kind="products"
+        title="Tovarlarni Excel'dan yuklash"
+        hint={"Kod berilgan tovar qayta yuklansa nusxalanmaydi — mavjudi yangilanadi. "
+          + "Toifa topilmasa o'zi yaratiladi."}
+        sampleNote={"O'lchov birligi fayldagi nomi yoki kodi bo'yicha topiladi "
+          + "(masalan «qop» yoki «dona»). Topilmasa o'sha qator o'tmaydi va sabab ko'rsatiladi."}
+        fields={PRODUCT_FIELDS}
+        onImport={async (rows) => {
+          // Jadvaldan narx "38 500,00" bo'lib keladi — bazaga son bo'lib borishi kerak
+          const clean = normalizeRows(rows, { numeric: ['price', 'min_qty'] })
+          const { data, error } = await supabase.rpc('ip_import_products', { p_rows: clean })
+          if (error) throw new Error(translateDbError(error.message))
+          await Promise.all([load(), refs.reload()])
+          return data as { ok: number; failed: { row: number; reason: string }[] }
+        }}
       />
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}
