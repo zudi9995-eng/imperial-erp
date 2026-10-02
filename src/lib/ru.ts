@@ -871,7 +871,6 @@ export const RU: Record<string, string> = {
   'Hamma holat': 'Все статусы',
   'Hamma tovar yetarli': 'Товара достаточно',
   'Buyurtma berish kerak': 'Нужно заказать',
-  'Jami ochiq': 'Всего открыто',
   'hamma pul harakati': 'все движения денег',
   'Oxirgi sotuvlar': 'Последние продажи',
   'Birinchi tovarni qo‘shish': 'Добавить первый товар',

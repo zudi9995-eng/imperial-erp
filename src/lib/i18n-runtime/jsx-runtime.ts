@@ -77,4 +77,8 @@ export function jsxs(type: unknown, props: Props, key?: unknown) {
     type, fixProps(props), key)
 }
 
+// JSX nomlar fazosi React niki bo'lib qoladi — aks holda
+// TypeScript JSX.IntrinsicElements ni topa olmaydi.
+export type { JSX } from 'react/jsx-runtime'
+
 export { Fragment }

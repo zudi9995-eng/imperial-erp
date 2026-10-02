@@ -129,7 +129,7 @@ export default function Archive() {
                   <DocTd tone="muted">{r.doc_no ?? '—'}</DocTd>
                   <DocTd>{r.title}</DocTd>
                   <DocTd align="right">
-                    {r.amount_base == null ? '—' : money(r.amount_base, false)}
+                    {r.amount_base == null ? '—' : money(Number(r.amount_base), false)}
                   </DocTd>
                   <DocTd tone="muted">{who(r.deleted_by)}</DocTd>
                   <DocTd tone="muted">{dateTimeUz(r.deleted_at)}</DocTd>

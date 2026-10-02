@@ -16,6 +16,7 @@ import { ProductCombo, ProductPickerModal, type PickCtx, type PickedLine } from 
 import { isoDate, money, num } from '../lib/format'
 import { useWindowSelf } from '../lib/windows'
 import DocHistory from './DocHistory'
+import { DocDeleteBarButton } from './DeleteDoc'
 
 /**
  * Postavshikdan xarid — 1C «Поступление товаров» formasi uslubida.
