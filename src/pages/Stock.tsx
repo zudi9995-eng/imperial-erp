@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Search, Package, AlertTriangle, Snowflake, ArrowLeftRight, Plus, Trash2, Send,
+  Search, Package, AlertTriangle, Snowflake, ArrowLeftRight, Plus, Trash2, Send, Upload,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -13,6 +13,20 @@ import {
 } from '../components/ui'
 import { dateTimeUz, money, moneyShort, num } from '../lib/format'
 import InventoryTab from '../components/InventoryTab'
+import ImportWizard from '../components/ImportWizard'
+import { normalizeRows, type SheetField } from '../lib/sheet'
+import { isoDate } from '../lib/format'
+
+/** Qoldiq faylida qidiriladigan ustunlar */
+const STOCK_FIELDS: SheetField[] = [
+  { key: 'code', label: 'Kod', aliases: ['код', 'артикул', 'sku'],
+    hint: 'Kod yoki nom — ikkisidan biri bo‘lsa yetarli' },
+  { key: 'name', label: 'Nomi', aliases: ['наименование', 'номенклатура', 'товар'] },
+  { key: 'qty', label: 'Miqdor', required: true,
+    aliases: ['количество', 'остаток', 'qoldiq', 'qty', 'кол-во'] },
+  { key: 'cost', label: 'Tan narx', aliases: ['себестоимость', 'цена', 'tan narxi'],
+    hint: 'Bir donaning tan narxi, QQS siz' },
+]
 
 type Tab = 'signals' | 'stock' | 'batches' | 'moves' | 'transfers' | 'inventory'
 
@@ -54,6 +68,9 @@ export default function Stock() {
   const [tab, setTab] = useState<Tab>('signals')
   const [wh, setWh] = useState<string>('')
   const [q, setQ] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [impWh, setImpWh] = useState('')
+  const [impDate, setImpDate] = useState(isoDate())
   const [signals, setSignals] = useState<StockSignal[]>([])
   const [stock, setStock] = useState<StockRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,6 +133,59 @@ export default function Stock() {
       <PageHeader
         title="Ombor"
         sub={`Partiya (FIFO) hisobi · ${summary.positions} pozitsiya${isOwner ? ` · ${moneyShort(summary.value)}` : ''}`}
+        actions={isOwner && (
+          <Button
+            size="sm"
+            onClick={() => {
+              // Ombor tanlanmagan bo'lsa standartini qo'yamiz
+              if (!impWh && refs.warehouses.length) {
+                const d = refs.warehouses.find((w) => w.is_default) ?? refs.warehouses[0]
+                setImpWh(String(d.id))
+              }
+              setImporting(true)
+            }}
+          >
+            <Upload size={14} />Qoldiqni Exceldan yuklash
+          </Button>
+        )}
+      />
+
+      <ImportWizard
+        open={importing}
+        onClose={() => setImporting(false)}
+        kind="stock"
+        title="Boshlang'ich qoldiqni yuklash"
+        hint={"Har qator uchun «boshlang'ich» partiya yaratiladi — shundan keyin "
+          + "FIFO tan narx ishlay boshlaydi. Tovar avval nomenklaturada bo'lishi kerak."}
+        sampleNote={"Shu faylni qayta yuklasangiz qoldiq ikkilanmaydi — mavjud partiya "
+          + "yangilanadi. Lekin undan tovar sotilgan bo'lsa, o'sha qator o'tmaydi."}
+        fields={STOCK_FIELDS}
+        extra={(
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-2 text-[13px]">
+              <span style={{ color: 'var(--text-2)' }}>Ombor</span>
+              <Select
+                value={impWh} onChange={setImpWh}
+                options={refs.warehouses.map((w) => ({ value: String(w.id), label: w.name }))}
+              />
+            </span>
+            <span className="flex items-center gap-2 text-[13px]">
+              <span style={{ color: 'var(--text-2)' }}>Qoldiq sanasi</span>
+              <Input type="date" value={impDate} onChange={setImpDate} />
+            </span>
+          </div>
+        )}
+        onImport={async (rows) => {
+          const clean = normalizeRows(rows, { numeric: ['qty', 'cost'] })
+          const { data, error } = await supabase.rpc('ip_import_stock', {
+            p_rows: clean,
+            p_warehouse: Number(impWh),
+            p_date: impDate,
+          })
+          if (error) throw new Error(translateDbError(error.message))
+          await load()
+          return data as { ok: number; failed: { row: number; reason: string }[] }
+        }}
       />
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}

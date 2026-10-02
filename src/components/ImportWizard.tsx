@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
+} from 'react'
 import { AlertTriangle, Check, FileSpreadsheet, Upload } from 'lucide-react'
 import {
   findHeaderRow, guessMapping, readSheet, type Row, type SheetField,
@@ -25,7 +27,7 @@ export interface ImportResult {
 type Step = 'file' | 'map' | 'done'
 
 export default function ImportWizard({
-  open, onClose, title, hint, kind, fields, onImport, sampleNote,
+  open, onClose, title, hint, kind, fields, onImport, sampleNote, extra,
 }: {
   open: boolean
   onClose: () => void
@@ -37,6 +39,8 @@ export default function ImportWizard({
   /** Moslangan qatorlarni bazaga yozadi */
   onImport: (rows: Record<string, string>[]) => Promise<ImportResult>
   sampleNote?: string
+  /** Moslash qadamida ko'rinadigan qo'shimcha maydonlar (ombor, sana…) */
+  extra?: ReactNode
 }) {
   const [step, setStep] = useState<Step>('file')
   const [rows, setRows] = useState<Row[]>([])
@@ -228,6 +232,13 @@ export default function ImportWizard({
               />
             </span>
           </div>
+
+          {extra && (
+            <div className="rounded-lg border p-3"
+                 style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
+              {extra}
+            </div>
+          )}
 
           <div className="grid gap-2 sm:grid-cols-2">
             {fields.map((f) => {
