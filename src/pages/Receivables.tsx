@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useRefs, translateDbError } from '../lib/useRefs'
+import ReceivePayment from '../components/ReceivePayment'
 import type { ArAging, ArCustomer } from '../lib/types'
 import {
   Badge, Button, Card, CardTitle, Empty, ErrorBox, Field, InfoBox, Input, Loading,
@@ -146,8 +147,9 @@ export default function Receivables() {
       {tab === 'docs' && <DocList rows={docs} q={q} />}
 
       {payFor && (
-        <PaymentModal
-          customer={payFor} onClose={() => setPayFor(null)}
+        <ReceivePayment
+          customerId={payFor.customer_id} customerName={payFor.name}
+          onClose={() => setPayFor(null)}
           onDone={() => { setPayFor(null); void load() }}
         />
       )}
@@ -370,125 +372,6 @@ function DocList({ rows, q }: { rows: ArAging[]; q: string }) {
         </Table>
       </div>
     </Card>
-  )
-}
-
-function PaymentModal({
-  customer, onClose, onDone,
-}: { customer: ArCustomer; onClose: () => void; onDone: () => void }) {
-  const refs = useRefs()
-  const [amount, setAmount] = useState('')
-  const [account, setAccount] = useState<number | null>(null)
-  const [date, setDate] = useState(isoDate())
-  const [method, setMethod] = useState('cash')
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const [result, setResult] = useState<{ allocated: number; advance: number; doc_count: number } | null>(null)
-
-  useEffect(() => {
-    if (account == null && refs.accounts.length) setAccount(refs.accounts[0].id)
-  }, [refs.accounts, account])
-
-  const amt = Number(amount) || 0
-  const excess = Math.max(0, amt - customer.outstanding_base)
-
-  async function save() {
-    if (!account) { setErr('Kassa hisobi tanlanmagan'); return }
-    if (amt <= 0) { setErr('Summa kiritilmagan'); return }
-    setBusy(true); setErr('')
-    const { data, error } = await supabase.rpc('ip_allocate_payment', {
-      p_customer: customer.customer_id,
-      p_amount: amt,
-      p_account: account,
-      p_date: date,
-      p_method: method,
-      p_note: note.trim() || null,
-    })
-    setBusy(false)
-    if (error) { setErr(translateDbError(error.message)); return }
-    setResult(data as { allocated: number; advance: number; doc_count: number })
-  }
-
-  if (result) {
-    return (
-      <Modal
-        open onClose={onDone} width={460} title="To'lov kiritildi"
-        footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}
-      >
-        <div className="space-y-3">
-          <InfoBox tone="ok">
-            <b>{money(result.allocated)}</b> qarzga yopildi
-            {result.doc_count > 0 && ` (${result.doc_count} ta hujjat, eng eskisidan boshlab)`}.
-          </InfoBox>
-          {result.advance > 0 && (
-            <InfoBox tone="info">
-              Ortgan <b>{money(result.advance)}</b> mijozning avansi sifatida yozildi.
-            </InfoBox>
-          )}
-        </div>
-      </Modal>
-    )
-  }
-
-  return (
-    <Modal
-      open onClose={onClose} width={520}
-      title={<span>To'lov — <span style={{ color: 'var(--text-2)' }}>{customer.name}</span></span>}
-      footer={
-        <>
-          <Button onClick={onClose}>Bekor</Button>
-          <Button variant="primary" loading={busy} onClick={save} disabled={amt <= 0}>
-            <Banknote size={14} />Kiritish
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <InfoBox>
-          Summa <b>eng eski hujjatdan boshlab</b> avtomatik taqsimlanadi.
-          Joriy qarz: <b>{money(customer.outstanding_base)}</b>
-          {customer.advance_base > 0 && <> · mavjud avans {money(customer.advance_base)}</>}
-        </InfoBox>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Summa" required>
-            <Input type="number" className="text-right tnum" value={amount} onChange={setAmount} autoFocus />
-          </Field>
-          <Field label="Sana"><Input type="date" value={date} onChange={setDate} /></Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Qayerga tushdi" required>
-            <Select
-              value={account ?? ''} onChange={(v) => setAccount(v ? Number(v) : null)}
-              options={refs.accounts.map((a) => ({ value: a.id, label: a.name }))}
-            />
-          </Field>
-          <Field label="To'lov turi">
-            <Select
-              value={method} onChange={setMethod}
-              options={[
-                { value: 'cash', label: 'Naqd' },
-                { value: 'bank', label: "Bank o'tkazmasi" },
-                { value: 'card', label: 'Karta' },
-                { value: 'other', label: 'Boshqa' },
-              ]}
-            />
-          </Field>
-        </div>
-
-        {excess > 0 && (
-          <InfoBox tone="warn">
-            Summa qarzdan <b>{money(excess)}</b> ko'p — ortgani avans bo'lib qoladi.
-          </InfoBox>
-        )}
-
-        <Field label="Izoh"><Textarea value={note} onChange={setNote} rows={2} /></Field>
-
-        {err && <ErrorBox>{err}</ErrorBox>}
-      </div>
-    </Modal>
   )
 }
 

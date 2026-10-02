@@ -17,8 +17,9 @@ import {
 import { dateShort, isoDate, money, moneyShort, monthLabel, num, pct } from '../lib/format'
 import DeleteDocButton from '../components/DeleteDoc'
 import CashJournal from '../components/CashJournal'
+import BankStatement from '../components/BankStatement'
 
-type Tab = 'position' | 'journal' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans'
+type Tab = 'position' | 'journal' | 'bank' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans'
 
 export default function Finance() {
   const [tab, setTab] = useState<Tab>('position')
@@ -26,6 +27,7 @@ export default function Finance() {
   const TABS = ([
     { key: 'position', label: 'Pozitsiya' },
     { key: 'journal',  label: 'Kassa jurnali' },
+    { key: 'bank',     label: 'Bank vipiskasi' },
     { key: 'pnl',      label: 'Foyda va zarar' },
     { key: 'cash',     label: 'Naqd oqim' },
     { key: 'plan',     label: 'Reja va byudjet' },
@@ -55,6 +57,7 @@ export default function Finance() {
 
       {tab === 'position' && <PositionTab />}
       {tab === 'journal'  && <CashJournal />}
+      {tab === 'bank'     && <BankStatement />}
       {tab === 'pnl'      && <PnlTab />}
       {tab === 'cash'     && <CashTab />}
       {tab === 'plan'     && <PlanTab />}
