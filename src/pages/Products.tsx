@@ -10,6 +10,7 @@ import {
   PageHeader, Select, Table, Td, Th, Toggle, Tr,
 } from '../components/ui'
 import { money, num, pct } from '../lib/format'
+import DeleteDocButton from '../components/DeleteDoc'
 
 interface PriceRow { product_id: number; tier_id: number; price: number }
 
@@ -118,7 +119,7 @@ export default function Products() {
                       <Th key={t.id} w={120} align="right">{t.name}</Th>
                     ))}
                     <Th w={90} align="center">Holat</Th>
-                    {isOwner && <Th w={90} align="right">Amal</Th>}
+                    {isOwner && <Th w={130} align="right">Amal</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -161,6 +162,10 @@ export default function Products() {
                             <Button size="sm" variant="ghost" title="Tahrirlash" onClick={() => setEdit(p)}>
                               <Pencil size={14} />
                             </Button>
+                            <DeleteDocButton
+                              entity="product" id={p.id} title={p.name}
+                              onDone={() => void load()}
+                            />
                           </span>
                         </Td>
                       )}

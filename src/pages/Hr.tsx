@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   UserPlus, KeyRound, UserX, UserCheck, Copy, Check, Calculator, Clock,
-  CalendarOff, TrendingUp, Send, Link2, RefreshCw,
+  CalendarOff, TrendingUp, Send, Link2, RefreshCw, Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -85,6 +85,7 @@ function StaffTab({ isOwner, meId, onOpen }: { isOwner: boolean; meId: string; o
   const [err, setErr] = useState('')
   const [creating, setCreating] = useState(false)
   const [resetFor, setResetFor] = useState<Profile | null>(null)
+  const [deleteFor, setDeleteFor] = useState<Profile | null>(null)
   const [tgCode, setTgCode] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -173,7 +174,7 @@ function StaffTab({ isOwner, meId, onOpen }: { isOwner: boolean; meId: string; o
                 {isOwner && <Th w={120} align="right">Bonus %</Th>}
                 <Th w={110} align="center">Telegram</Th>
                 <Th w={90} align="center">Holat</Th>
-                {isOwner && <Th w={110} align="right">Amal</Th>}
+                {isOwner && <Th w={150} align="right">Amal</Th>}
               </tr>
             </thead>
             <tbody>
@@ -244,6 +245,14 @@ function StaffTab({ isOwner, meId, onOpen }: { isOwner: boolean; meId: string; o
                             {p.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
                           </Button>
                         )}
+                        {p.id !== meId && (
+                          <Button
+                            size="sm" variant="ghost" title="O'chirish"
+                            onClick={() => setDeleteFor(p)}
+                          >
+                            <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                          </Button>
+                        )}
                       </span>
                     </Td>
                   )}
@@ -265,6 +274,13 @@ function StaffTab({ isOwner, meId, onOpen }: { isOwner: boolean; meId: string; o
       )}
       {resetFor && (
         <ResetPasswordModal profile={resetFor} onClose={() => setResetFor(null)} />
+      )}
+      {deleteFor && (
+        <DeleteStaffModal
+          profile={deleteFor}
+          onClose={() => setDeleteFor(null)}
+          onDone={() => { setDeleteFor(null); void load() }}
+        />
       )}
       {tgCode && <TelegramCodeModal code={tgCode} onClose={() => setTgCode(null)} />}
     </div>
@@ -1059,5 +1075,91 @@ function PayrollTab() {
         </div>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Xodimni o'chirish.
+ *
+ * Agar xodim birorta hujjat yaratgan bo'lsa, baza uni butunlay
+ * o'chirishga yo'l qo'ymaydi — hujjatlardagi "kim yaratgan" ko'rsatkichi
+ * uzilib qoladi. Bunday holatda xodim arxivga olinadi va hisobi yopiladi.
+ */
+function DeleteStaffModal({
+  profile, onClose, onDone,
+}: {
+  profile: Profile
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [result, setResult] = useState<'deleted' | 'archived' | null>(null)
+
+  async function run() {
+    setBusy(true); setErr('')
+    try {
+      const res = await invokeFn<{ mode: 'deleted' | 'archived' }>('ip-staff', {
+        action: 'delete', id: profile.id, reason: reason.trim() || null,
+      })
+      setResult(res.mode)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Xato')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (result) {
+    return (
+      <Modal
+        open onClose={onDone} title="Bajarildi" width={460}
+        footer={<Button variant="primary" onClick={onDone}>Yopish</Button>}
+      >
+        {result === 'deleted' ? (
+          <InfoBox tone="ok">
+            <b>{profile.full_name}</b> butunlay o'chirildi. Kartochkasi
+            Arxiv bo'limida saqlanib qoldi.
+          </InfoBox>
+        ) : (
+          <InfoBox tone="warn">
+            <b>{profile.full_name}</b> hujjatlar yaratgan, shuning uchun
+            butunlay o'chirilmadi — hujjatlar kim tomonidan kiritilgani
+            yo'qolmasin. Hisobi yopildi va kartochkasi Arxivga olindi.
+          </InfoBox>
+        )}
+      </Modal>
+    )
+  }
+
+  return (
+    <Modal
+      open onClose={() => { if (!busy) onClose() }}
+      title="Xodim o'chirilsinmi?" width={460}
+      footer={
+        <>
+          <Button variant="ghost" disabled={busy} onClick={onClose}>Bekor</Button>
+          <Button variant="danger" loading={busy} onClick={() => void run()}>
+            <Trash2 size={14} />O'chirish
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="text-[14px] font-medium">{profile.full_name}</div>
+        <InfoBox tone="warn">
+          Kirish hisobi o'chadi. Kartochkasi ish tarixi va oylik yozuvlari
+          bilan birga <b>Arxiv</b> bo'limida saqlanib qoladi.
+        </InfoBox>
+        <Field label="Nega o'chiryapsiz">
+          <Textarea
+            value={reason} onChange={setReason} rows={2}
+            placeholder="Masalan: ishdan bo'shadi"
+          />
+        </Field>
+        {err && <ErrorBox>{err}</ErrorBox>}
+      </div>
+    </Modal>
   )
 }

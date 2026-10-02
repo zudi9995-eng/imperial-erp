@@ -13,6 +13,7 @@ import { DocTable, DocTd, DocTh, DocTr } from './docList'
 import { dateShort, isoDate, money, num } from '../lib/format'
 import { useWindowSelf } from '../lib/windows'
 import DocHistory from './DocHistory'
+import { DocDeleteBarButton } from './DeleteDoc'
 
 /**
  * Xaridordan tovar qaytarish — 1C «Возврат товаров от покупателя».
@@ -287,6 +288,12 @@ export default function ReturnForm({
             Sotuv: {sale.doc_no ?? sale.id}
           </DocBarButton>
         )}
+        <DocDeleteBarButton
+          entity="return" id={id} disabled={busy}
+          title={`Qaytarish ${docNo ?? id}`}
+          onDone={() => { onSaved(); onClose() }}
+        />
+        <BarSep />
         <DocBarButton onClick={requestClose} disabled={busy} title="Yopish">
           <Ban size={14} />
         </DocBarButton>

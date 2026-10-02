@@ -14,6 +14,7 @@ import { dateShort, isoDate, money, num, pct } from '../lib/format'
 import { PayBadge, ShipBadge } from './SaleIndicators'
 import { printSaleDoc, printOffer } from './printDoc'
 import { useSettings } from '../lib/settings'
+import DeleteDocButton from './DeleteDoc'
 
 export default function SaleDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const { can } = useAuth()
@@ -132,6 +133,11 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
           <Button size="sm" onClick={() => setModal('delivery')}>
             <MapPin size={14} />Yetkazish
           </Button>
+          <DeleteDocButton
+            entity="sale" id={s.id} label="O'chirish"
+            title={`Sotuv ${s.doc_no ?? s.id}`}
+            onDone={onBack}
+          />
         </div>
       </div>
 

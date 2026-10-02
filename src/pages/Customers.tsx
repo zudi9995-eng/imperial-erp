@@ -17,6 +17,7 @@ import {
 import {
   dateShort, dateTimeUz, isoDate, money, moneyShort, pct, relativeDays,
 } from '../lib/format'
+import DeleteDocButton from '../components/DeleteDoc'
 
 const STATUS_LABEL: Record<CustomerStatus, string> = {
   lead: 'Lid', active: 'Faol', sleeping: 'Uxlayotgan', lost: "Yo'qotilgan", blocked: 'Bloklangan',
@@ -37,7 +38,8 @@ export default function Customers() {
 /* ================================================================ */
 
 function CustomerList({ onOpen }: { onOpen: (id: number) => void }) {
-  const { isOwner } = useAuth()
+  const { isOwner, can } = useAuth()
+  const canDelete = can('doc.delete')
   const refs = useRefs()
   const [rows, setRows] = useState<CustomerStats[]>([])
   const [q, setQ] = useState('')
@@ -152,6 +154,7 @@ function CustomerList({ onOpen }: { onOpen: (id: number) => void }) {
                   <Th w={140} align="right">Sof qarz</Th>
                   <Th w={120} align="right">Oxirgi sotuv</Th>
                   <Th w={100} align="center">Holat</Th>
+                  {canDelete && <Th w={50} />}
                 </tr>
               </thead>
               <tbody>
@@ -216,6 +219,14 @@ function CustomerList({ onOpen }: { onOpen: (id: number) => void }) {
                     <Td align="center">
                       <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                     </Td>
+                    {canDelete && (
+                      <Td align="center" stopClick>
+                        <DeleteDocButton
+                          entity="customer" id={r.customer_id} title={r.name}
+                          onDone={() => void load()}
+                        />
+                      </Td>
+                    )}
                   </Tr>
                 ))}
               </tbody>

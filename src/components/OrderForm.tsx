@@ -18,6 +18,7 @@ import { printOrderDoc } from './printDoc'
 import { useWindowSelf } from '../lib/windows'
 import { useSettings } from '../lib/settings'
 import DocHistory from './DocHistory'
+import { DocDeleteBarButton } from './DeleteDoc'
 import CustomerSnapshot from './CustomerSnapshot'
 
 /**
@@ -511,6 +512,11 @@ export default function OrderForm({
         >
           <Ban size={14} />
         </DocBarButton>
+        <DocDeleteBarButton
+          entity="order" id={id} disabled={busy}
+          title={`Buyurtma ${docNo ?? id}`}
+          onDone={() => { onSaved(); onClose() }}
+        />
         {saleId && (
           <>
             <BarSep />

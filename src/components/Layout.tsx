@@ -4,6 +4,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package, Wallet, Building2, Sparkles,
   Settings as SettingsIcon, BarChart3, CalendarDays, CheckSquare, Menu, X,
   LogOut, Moon, Sun, Truck, UserCog, Handshake, ShieldCheck, FileText,
+  Archive as ArchiveIcon,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
   { to: '/finance',     label: 'Moliya va P&L', icon: Building2,       perm: 'view.finance',     group: 'Boshqaruv' },
   { to: '/hr',          label: 'Xodimlar',      icon: UserCog,         perm: 'view.hr',          group: 'Boshqaruv' },
   { to: '/approvals',   label: 'Tasdiqlash',    icon: ShieldCheck,     perm: 'view.approvals',   group: 'Boshqaruv' },
+  { to: '/archive',     label: 'Arxiv',         icon: ArchiveIcon,     perm: 'archive.view',     group: 'Boshqaruv' },
   { to: '/settings',    label: 'Sozlamalar',    icon: SettingsIcon,    perm: 'view.settings',    group: 'Boshqaruv' },
 ]
 

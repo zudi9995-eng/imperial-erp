@@ -426,6 +426,11 @@ export default function PurchaseForm({
         <DocBarButton onClick={() => void doPost(false)} disabled={readOnly || busy || !canPost}>
           O'tkazish
         </DocBarButton>
+        <DocDeleteBarButton
+          entity="purchase" id={id} disabled={busy}
+          title={`Xarid ${docNo ?? id}`}
+          onDone={() => { onSaved(); onClose() }}
+        />
         <BarSep />
         <DocBarButton onClick={requestClose} disabled={busy} title="Yopish">
           <Ban size={14} />

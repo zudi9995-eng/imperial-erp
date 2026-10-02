@@ -21,6 +21,7 @@ const Tasks        = lazy(() => import('./pages/Tasks'))
 const Finance      = lazy(() => import('./pages/Finance'))
 const Hr           = lazy(() => import('./pages/Hr'))
 const Approvals    = lazy(() => import('./pages/Approvals'))
+const ArchivePage  = lazy(() => import('./pages/Archive'))
 const Companies    = lazy(() => import('./pages/Companies'))
 const Ai           = lazy(() => import('./pages/Ai'))
 
@@ -74,6 +75,7 @@ export default function App() {
           />
           <Route path="/hr"        element={<Hr />} />
           <Route path="/approvals" element={<Approvals />} />
+          <Route path="/archive"   element={<ArchivePage />} />
           <Route
             path="/companies"
             element={<Guard allow={isPlatformAdmin}><Companies /></Guard>}

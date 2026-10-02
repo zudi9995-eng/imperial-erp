@@ -15,6 +15,7 @@ import {
   Modal, PageHeader, Progress, Select, Stat, Table, Td, Textarea, Th, Tr,
 } from '../components/ui'
 import { dateShort, isoDate, money, moneyShort, monthLabel, num, pct } from '../lib/format'
+import DeleteDocButton from '../components/DeleteDoc'
 import CashJournal from '../components/CashJournal'
 
 type Tab = 'position' | 'journal' | 'pnl' | 'cash' | 'plan' | 'expenses' | 'loans'
@@ -734,6 +735,7 @@ function ExpensesTab() {
                   <Th>Izoh</Th>
                   <Th w={150} align="right">Summa</Th>
                   <Th w={100} align="center">Holat</Th>
+                  <Th w={50} />
                 </tr>
               </thead>
               <tbody>
@@ -745,6 +747,13 @@ function ExpensesTab() {
                     <Td align="right" mono>{money(r.amount_base, false)}</Td>
                     <Td align="center">
                       <Badge tone={r.is_paid ? 'ok' : 'warn'}>{r.is_paid ? "to'langan" : 'kutilmoqda'}</Badge>
+                    </Td>
+                    <Td align="center" stopClick>
+                      <DeleteDocButton
+                        entity="expense" id={r.id}
+                        title={r.description ?? `Harajat #${r.id}`}
+                        onDone={() => void load()}
+                      />
                     </Td>
                   </Tr>
                 ))}
