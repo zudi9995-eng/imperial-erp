@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CheckCircle2, Clock, Ban, PauseCircle, ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Logo'
+import LangSwitch from '../components/LangSwitch'
 import { useAuth } from '../lib/auth'
 import { Button, Card, ErrorBox, Field, Input, InfoBox } from '../components/ui'
 
@@ -314,6 +315,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <Card className="ip-fade">{children}</Card>
+        <div className="mt-4 flex justify-center"><LangSwitch size="sm" /></div>
       </div>
     </div>
   )

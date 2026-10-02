@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase'
 import { Badge, Button } from './ui'
 import { initials } from '../lib/format'
 import MoneyBar from './MoneyBar'
+import LangSwitch from './LangSwitch'
 import DocWindows from './DocWindows'
 import { Logo, LogoMark } from './Logo'
 import { useWindows } from '../lib/windows'
@@ -231,7 +232,8 @@ export default function Layout() {
               </div>
             </div>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <LangSwitch size="sm" />
             <Button
               size="sm" variant="subtle" className="flex-1"
               title="Tema"

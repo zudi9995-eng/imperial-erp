@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Logo, LogoMark } from '../components/Logo'
 import { Button } from '../components/ui'
+import LangSwitch from '../components/LangSwitch'
 
 /**
  * Ochiq sahifa — hisobi yo'q odam shuni ko'radi.
@@ -78,6 +79,7 @@ export default function Landing() {
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-4">
           <Logo size={30} />
           <div className="flex items-center gap-2">
+            <LangSwitch size="sm" />
             <Button size="sm" variant="ghost" onClick={() => nav('/kirish')}>
               Kirish
             </Button>
