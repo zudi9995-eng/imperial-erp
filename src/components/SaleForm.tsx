@@ -18,6 +18,7 @@ import { isoDate, money, num, pct } from '../lib/format'
 import { printSaleDoc } from './printDoc'
 import { useWindowSelf } from '../lib/windows'
 import DocHistory from './DocHistory'
+import CustomerCombo from './CustomerPick'
 import CustomerSnapshot from './CustomerSnapshot'
 
 /**
@@ -628,11 +629,9 @@ export default function SaleForm({
               </span>
             )}
           >
-            <DocSelect
-              value={customerId ?? ''} disabled={readOnly}
-              onChange={(v) => { setCustomerId(v ? Number(v) : null); setContractId(null); touch() }}
-              placeholder="Tanlang…"
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
+            <CustomerCombo
+              value={customerId} customers={customers} disabled={readOnly}
+              onChange={(id) => { setCustomerId(id); setContractId(null); touch() }}
             />
           </DocField>
 

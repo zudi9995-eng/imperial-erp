@@ -18,6 +18,7 @@ import { printOrderDoc } from './printDoc'
 import { useWindowSelf } from '../lib/windows'
 import { useSettings } from '../lib/settings'
 import DocHistory from './DocHistory'
+import CustomerCombo from './CustomerPick'
 import { DocDeleteBarButton } from './DeleteDoc'
 import CustomerSnapshot from './CustomerSnapshot'
 
@@ -577,11 +578,9 @@ export default function OrderForm({
               </span>
             )}
           >
-            <DocSelect
-              value={customerId ?? ''} disabled={readOnly}
-              onChange={(v) => { setCustomerId(v ? Number(v) : null); setContractId(null); touch() }}
-              placeholder="Tanlang…"
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
+            <CustomerCombo
+              value={customerId} customers={customers} disabled={readOnly}
+              onChange={(id) => { setCustomerId(id); setContractId(null); touch() }}
             />
           </DocField>
 
