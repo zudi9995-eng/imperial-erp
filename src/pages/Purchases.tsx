@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Plus, Trash2, Truck, Send, Banknote, CheckCircle2, Search, Pencil,
+  Plus, Trash2, Truck, Send, Banknote, CheckCircle2, Search, Pencil, Upload,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -12,6 +12,19 @@ import {
 } from '../components/ui'
 import { dateShort, isoDate, money, moneyShort, monthStart, num } from '../lib/format'
 import { useWindows, useSignal } from '../lib/windows'
+import ImportWizard from '../components/ImportWizard'
+import { normalizeRows, type SheetField } from '../lib/sheet'
+
+/** Postavshik faylida qidiriladigan ustunlar — uz, ru va 1C nomlari bilan */
+const SUPPLIER_FIELDS: SheetField[] = [
+  { key: 'name', label: 'Nomi', required: true,
+    aliases: ['наименование', 'представление', 'контрагент', 'поставщик'] },
+  { key: 'inn', label: 'STIR', aliases: ['инн', 'stir'],
+    hint: 'Bo‘lsa takrorlanish aniq topiladi' },
+  { key: 'phone', label: 'Telefon', aliases: ['телефон', 'phone', 'tel'] },
+  { key: 'debt', label: 'Qarz', aliases: ['долг', 'debt', 'qarzi', 'сальдо'],
+    hint: 'Manfiy — biz qarzdormiz, musbat — avans berganmiz' },
+]
 
 type Tab = 'docs' | 'suppliers'
 
@@ -178,6 +191,7 @@ function SuppliersTab({ isOwner }: { isOwner: boolean }) {
   const [loading, setLoading] = useState(true)
   const [payFor, setPayFor] = useState<SupplierBalance | null>(null)
   const [edit, setEdit] = useState<Partial<Supplier> | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('ip_supplier_balance').select('*')
@@ -211,11 +225,48 @@ function SuppliersTab({ isOwner }: { isOwner: boolean }) {
           />
         </div>
         {isOwner && (
+          <Button onClick={() => setImporting(true)}>
+            <Upload size={14} />Exceldan yuklash
+          </Button>
+        )}
+        {isOwner && (
           <Button variant="primary" onClick={() => setEdit({ is_active: true, currency: 'UZS' })}>
             <Plus size={14} />Postavshik
           </Button>
         )}
       </div>
+
+      <ImportWizard
+        open={importing}
+        onClose={() => setImporting(false)}
+        kind="suppliers"
+        title="Postavshiklarni Excel'dan yuklash"
+        hint={"Qarz bitta ustunda, ishorasi bilan bo'lsa ham bo'ladi (1C dagi "
+          + "«Долг (+ нам, - мы)» kabi): manfiy — biz postavshikka qarzdormiz, "
+          + "musbat — oldindan to'lab qo'yganmiz."}
+        sampleNote={"Bir xil nom yoki STIR ikki marta uchrasa nusxa yaratilmaydi — "
+          + "mavjud kartochka to'ldiriladi."}
+        fields={SUPPLIER_FIELDS}
+        onImport={async (raw) => {
+          const clean = normalizeRows(raw, { numeric: ['debt'] })
+          const { data, error } = await supabase.rpc('ip_import_suppliers', { p_rows: clean })
+          if (error) throw new Error(translateDbError(error.message))
+          await load()
+          const r = data as {
+            ok: number; created: number; merged: number
+            failed: { row: number; reason: string }[]
+          }
+          return {
+            ok: r.ok,
+            failed: [
+              ...r.failed,
+              ...(r.merged > 0
+                ? [{ row: 0, reason: `${r.merged} qator mavjud postavshikka qo'shildi` }]
+                : []),
+            ],
+          }
+        }}
+      />
 
       <Card pad={false}>
         <div className="p-4">
