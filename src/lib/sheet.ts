@@ -52,10 +52,26 @@ export function pickSheet(raw: unknown): unknown[][] | null {
   return best
 }
 
-/** Excel katakchasi har xil turda keladi — hammasini matnga keltiramiz */
-function cellToText(v: unknown): string {
+/** Excel sanasining boshlanish nuqtasi */
+const EXCEL_EPOCH = Date.UTC(1899, 11, 30)
+
+/**
+ * Excel katakchasi har xil turda keladi — hammasini matnga keltiramiz.
+ *
+ * Nozik joy: 1C dan chiqqan hisobotlarda raqam ustuni ba'zan sana
+ * formatida saqlanadi. Kutubxona uni Date qilib beradi va qiymat
+ * 1900-yillarga tushadi (49.59 -> 1900-02-17). Haqiqiy hujjat sanasi
+ * hech qachon 1990 dan oldin bo'lmaydi, shuning uchun eski sanani
+ * asl soniga qaytaramiz — aks holda miqdor butunlay yo'qoladi.
+ */
+export function cellToText(v: unknown): string {
   if (v == null) return ''
   if (v instanceof Date) {
+    if (v.getUTCFullYear() < 1990) {
+      const serial = (v.getTime() - EXCEL_EPOCH) / 86400000
+      // Kasr qoldig'idagi suzuvchi nuqta xatosini kesamiz
+      return String(Math.round(serial * 1e6) / 1e6)
+    }
     const p = (n: number) => String(n).padStart(2, '0')
     return `${p(v.getDate())}.${p(v.getMonth() + 1)}.${v.getFullYear()}`
   }

@@ -1,6 +1,6 @@
 // Excel/CSV o'qish mantig'i sinovi:  npm test
 
-const { toNumber, toDate, parseCsv, guessMapping, findHeaderRow, normalizeRows, pickSheet } =
+const { toNumber, toDate, parseCsv, guessMapping, findHeaderRow, normalizeRows, pickSheet, cellToText } =
   await import('./sheet.ts')
 
 let fail = 0
@@ -66,5 +66,12 @@ eq(pickSheet([{sheet:'Лист_1', data:[['a'],['1']]}]), [['a'],['1']], "varaql
 eq(pickSheet([{sheet:'bosh', data:[['x']]}, {sheet:'asosiy', data:[['a'],['1'],['2']]}]),
    [['a'],['1'],['2']], 'eng kop qatorli varaq')
 eq(pickSheet([]), null, 'bosh fayl')
+
+// --- 1C da raqam ustuni sana formatida saqlangan bo'lsa
+eq(cellToText(new Date(Date.UTC(1900,1,17,14,15,21,600))), '49.594', 'eski sana -> son')
+eq(cellToText(new Date(Date.UTC(1900,0,9))), '10', 'butun son')
+eq(cellToText(new Date(Date.UTC(2026,9,2))), '02.10.2026', "haqiqiy sana o'z holida")
+eq(cellToText(null), '', 'bosh katakcha')
+eq(cellToText(42), '42', 'oddiy son')
 
 console.log(fail === 0 ? 'HAMMASI O\'TDI' : fail + ' ta xato')
