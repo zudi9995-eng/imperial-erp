@@ -25,8 +25,31 @@ export async function readSheet(file: File): Promise<Row[]> {
 
 async function readXlsx(file: File): Promise<Row[]> {
   const { default: readXlsxFile } = await import('read-excel-file/browser')
-  const rows = await readXlsxFile(file)
-  return (rows as unknown as unknown[][]).map((r) => r.map(cellToText))
+  const raw = await readXlsxFile(file)
+  return (pickSheet(raw as unknown) ?? []).map((r) => r.map(cellToText))
+}
+
+/**
+ * Kutubxona ba'zi fayllarda oddiy qatorlar emas, varaqlar ro'yxatini
+ * qaytaradi: [{ sheet, data }]. Haqiqiy 1C eksportlarida shunday
+ * bo'ldi, shuning uchun ikkala ko'rinishni ham qabul qilamiz.
+ * Bir nechta varaq bo'lsa, eng ko'p qatorlisi olinadi.
+ */
+export function pickSheet(raw: unknown): unknown[][] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null
+
+  // Oddiy ko'rinish: qatorlar massivi
+  if (Array.isArray(raw[0])) return raw as unknown[][]
+
+  // Varaqlar ro'yxati
+  const sheets = raw as { sheet?: string; data?: unknown[][] }[]
+  let best: unknown[][] | null = null
+  for (const s of sheets) {
+    const d = Array.isArray(s?.data) ? s.data : null
+    if (!d) continue
+    if (!best || d.length > best.length) best = d
+  }
+  return best
 }
 
 /** Excel katakchasi har xil turda keladi — hammasini matnga keltiramiz */

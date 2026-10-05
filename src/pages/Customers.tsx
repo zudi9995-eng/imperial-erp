@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, Users, UserCheck, Phone, ArrowLeft, Pencil, MessageSquarePlus,
-  FileText, ShoppingCart, Wallet, TrendingUp, Clock, AlertTriangle, Link2, Check,
+  FileText, ShoppingCart, Wallet, TrendingUp, Clock, AlertTriangle, Link2, Check, Upload,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -18,6 +18,19 @@ import {
   dateShort, dateTimeUz, isoDate, money, moneyShort, pct, relativeDays,
 } from '../lib/format'
 import DeleteDocButton from '../components/DeleteDoc'
+import ImportWizard from '../components/ImportWizard'
+import { normalizeRows, type SheetField } from '../lib/sheet'
+
+/** Mijoz faylida qidiriladigan ustunlar — uz, ru va 1C nomlari bilan */
+const CUSTOMER_FIELDS: SheetField[] = [
+  { key: 'name', label: 'Nomi', required: true,
+    aliases: ['наименование', 'представление', 'контрагент', 'клиент', 'mijoz'] },
+  { key: 'inn', label: 'STIR', aliases: ['инн', 'stir'],
+    hint: 'Bo‘lsa takrorlanish aniq topiladi' },
+  { key: 'phone', label: 'Telefon', aliases: ['телефон', 'phone', 'tel'] },
+  { key: 'debt', label: 'Qarz', aliases: ['долг', 'debt', 'qarzi', 'сальдо'],
+    hint: 'Musbat — bizga qarzdor, manfiy — avans bergan' },
+]
 
 const STATUS_LABEL: Record<CustomerStatus, string> = {
   lead: 'Lid', active: 'Faol', sleeping: 'Uxlayotgan', lost: "Yo'qotilgan", blocked: 'Bloklangan',
@@ -49,6 +62,7 @@ function CustomerList({ onOpen }: { onOpen: (id: number) => void }) {
   const [sel, setSel] = useState<Set<number>>(new Set())
   const [assigning, setAssigning] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('ip_customer_stats').select('*').order('name')
@@ -83,10 +97,47 @@ function CustomerList({ onOpen }: { onOpen: (id: number) => void }) {
         title="Mijozlar"
         sub={`${rows.length} mijoz · ${unassigned} tasi taqsimlanmagan`}
         actions={isOwner && (
-          <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-            <Plus size={14} />Yangi mijoz
-          </Button>
+          <>
+            <Button size="sm" onClick={() => setImporting(true)}>
+              <Upload size={14} />Exceldan yuklash
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+              <Plus size={14} />Yangi mijoz
+            </Button>
+          </>
         )}
+      />
+
+      <ImportWizard
+        open={importing}
+        onClose={() => setImporting(false)}
+        kind="customers"
+        title="Mijozlarni Excel'dan yuklash"
+        hint={"Qarz bitta ustunda, ishorasi bilan bo'lsa ham bo'ladi (1C dagi "
+          + "«Долг (+ нам, - мы)» kabi): musbat — mijoz bizga qarzdor, manfiy — "
+          + "biz undan avans olganmiz."}
+        sampleNote={"Bir xil nom yoki STIR ikki marta uchrasa nusxa yaratilmaydi — "
+          + "mavjud kartochka to'ldiriladi."}
+        fields={CUSTOMER_FIELDS}
+        onImport={async (raw) => {
+          const clean = normalizeRows(raw, { numeric: ['debt'] })
+          const { data, error } = await supabase.rpc('ip_import_customers', { p_rows: clean })
+          if (error) throw new Error(translateDbError(error.message))
+          await load()
+          const r = data as {
+            ok: number; created: number; merged: number
+            failed: { row: number; reason: string }[]
+          }
+          return {
+            ok: r.ok,
+            failed: [
+              ...r.failed,
+              ...(r.merged > 0
+                ? [{ row: 0, reason: `${r.merged} qator mavjud mijozga qo'shildi` }]
+                : []),
+            ],
+          }
+        }}
       />
 
       {err && <div className="mb-4"><ErrorBox>{err}</ErrorBox></div>}

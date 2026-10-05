@@ -1,6 +1,6 @@
 // Excel/CSV o'qish mantig'i sinovi:  npm test
 
-const { toNumber, toDate, parseCsv, guessMapping, findHeaderRow, normalizeRows } =
+const { toNumber, toDate, parseCsv, guessMapping, findHeaderRow, normalizeRows, pickSheet } =
   await import('./sheet.ts')
 
 let fail = 0
@@ -59,5 +59,12 @@ eq(guessMapping(rows[h], F), {date:0,doc:1,name:2,inn:3,debit:4,credit:5,purp:6}
 eq(normalizeRows([{price:'38 500,00', min_qty:'', d:'02.10.2026'}], {numeric:['price','min_qty'], date:['d']}),
    [{price:'38500', min_qty:'', d:'2026-10-02'}], 'normalizeRows')
 eq(normalizeRows([{price:'yomon'}], {numeric:['price']}), [{price:''}], "o'qib bo'lmagan raqam bo'sh qoladi")
+
+// --- kutubxona ikki xil ko'rinishda qaytaradi
+eq(pickSheet([['a','b'],['1','2']]), [['a','b'],['1','2']], 'oddiy qatorlar')
+eq(pickSheet([{sheet:'Лист_1', data:[['a'],['1']]}]), [['a'],['1']], "varaqlar royxati")
+eq(pickSheet([{sheet:'bosh', data:[['x']]}, {sheet:'asosiy', data:[['a'],['1'],['2']]}]),
+   [['a'],['1'],['2']], 'eng kop qatorli varaq')
+eq(pickSheet([]), null, 'bosh fayl')
 
 console.log(fail === 0 ? 'HAMMASI O\'TDI' : fail + ' ta xato')
