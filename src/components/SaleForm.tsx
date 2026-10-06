@@ -262,6 +262,9 @@ export default function SaleForm({
     return a + line * l.vat_pct / (100 + l.vat_pct)
   }, 0)
   const exVatTotal = total - vatTotal
+  // Yorliqda haqiqiy stavka tursin — qatorda o'zgartirilgan bo'lishi mumkin
+  const vatRates = [...new Set(valid.map((l) => l.vat_pct).filter((r) => r > 0))]
+  const vatLabel = vatRates.length === 1 ? `QQS (${vatRates[0]}%)` : 'QQS (narx ichida)'
   const discountTotal = Math.max(0, listTotal - total)
   const belowMin = valid.filter(
     (l) => l.margin != null && l.minMargin != null && l.margin < l.minMargin)
@@ -423,6 +426,12 @@ export default function SaleForm({
       })) as never,
     )
     if (e2) throw new Error(e2.message)
+
+    // QQS va summalarni baza hisoblaydi. Bu postlashda ham chaqiriladi,
+    // lekin qoralama ro'yxatda nol turib qolmasin — xarid va buyurtma
+    // formalari ham shunday qiladi.
+    const { error: e3 } = await supabase.rpc('ip_recalc_sale', { p_sale_id: sid })
+    if (e3) throw new Error(e3.message)
 
     setDirty(false)
     return sid
@@ -809,7 +818,7 @@ export default function SaleForm({
               ? [{ label: 'Chegirma', value: money(discountTotal, false) }] : []),
             ...(vatTotal > 0
               ? [{ label: 'QQS siz', value: money(exVatTotal, false) },
-                 { label: `QQS (${vatRate}%)`, value: money(vatTotal, false) }] : []),
+                 { label: vatLabel, value: money(vatTotal, false) }] : []),
             { label: 'Jami', value: money(total), strong: true },
           ]}
         />
@@ -895,7 +904,7 @@ function ItemsGrid({
               {head('Nomenklatura')}
               {head('Miqdor', 92, true)}
               {head('Birlik', 60)}
-              {head('Narx', 120, true)}
+              {head(showVat ? 'Narx (QQS bilan)' : 'Narx', 128, true)}
               {head('Chegirma %', 92, true)}
               {head('Summa', 132, true)}
               {showVat ? head('QQS %', 72, true) : null}

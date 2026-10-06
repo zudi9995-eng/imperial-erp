@@ -214,6 +214,9 @@ export default function PurchaseForm({
     return a + line * l.vat_pct / (100 + l.vat_pct)
   }, 0)
   const exVatTotal = totalDoc - vatTotal
+  // Yorliqda haqiqiy stavka tursin — qatorda o'zgartirilgan bo'lishi mumkin
+  const vatRates = [...new Set(valid.map((l) => l.vat_pct).filter((r) => r > 0))]
+  const vatLabel = vatRates.length === 1 ? `QQS (${vatRates[0]}%)` : 'QQS (narx ichida)'
   const qtyTotal = valid.reduce((a, l) => a + Number(l.qty), 0)
 
   /* ---------------------------------------------- qatorlar */
@@ -518,8 +521,9 @@ export default function PurchaseForm({
       {!err && showVat && (
         <div className="px-3 pb-2">
           <InfoBox>
-            Tan narx omborga <b>QQS siz</b> kiritiladi — shunda sotuvdagi marja
-            haqiqiy foydani ko'rsatadi.
+            Narxni <b>QQS bilan</b> — hujjatdagidek — kiriting. QQS ni tizim
+            o'zi ajratib oladi, omborga esa <b>QQS siz</b> tan narx tushadi:
+            shunda sotuvdagi marja haqiqiy foydani ko'rsatadi.
           </InfoBox>
         </div>
       )}
@@ -578,7 +582,7 @@ export default function PurchaseForm({
             { label: 'Miqdor', value: num(qtyTotal, 2) },
             ...(vatTotal > 0
               ? [{ label: 'QQS siz', value: money(exVatTotal, false) },
-                 { label: `QQS (${vatRate}%)`, value: money(vatTotal, false) }] : []),
+                 { label: vatLabel, value: money(vatTotal, false) }] : []),
             { label: 'Jami', value: money(totalDoc), strong: true },
             ...(fx !== 1
               ? [{ label: "So'mda", value: money(totalDoc * fx) }] : []),
@@ -656,16 +660,17 @@ function ItemsGrid({
 
       <div className="-mx-1 overflow-x-auto px-1">
         <table className="w-full border-collapse text-[13px]"
-               style={{ minWidth: showVat ? 1080 : 900 }}>
+               style={{ minWidth: showVat ? 1200 : 900 }}>
           <thead>
             <tr style={{ background: 'var(--surface-2)' }}>
               {head('N', 34)}
               {head('Nomenklatura')}
               {head('Miqdor', 92, true)}
               {head('Birlik', 60)}
-              {head('Tan narx', 120, true)}
+              {head(showVat ? 'Narx (QQS bilan)' : 'Tan narx', 128, true)}
               {showVat ? head('QQS %', 72, true) : null}
               {head('Summa', 132, true)}
+              {showVat ? head('QQS summa', 118, true) : null}
               {head('Oldingi narx', 118, true)}
               {head('Ombordagi', 100, true)}
               {head('', 34)}
@@ -678,6 +683,8 @@ function ItemsGrid({
               const qty = Number(l.qty) || 0
               const cost = Number(l.cost) || 0
               const sum = qty * cost
+              // QQS narx ichida — summadan ajratib ko'rsatamiz
+              const lineVat = l.vat_pct > 0 ? sum * l.vat_pct / (100 + l.vat_pct) : 0
               const prev = l.product_id ? lastCost.get(l.product_id) ?? 0 : 0
               // Narx oshgan bo'lsa menejer buni darrov ko'rsin
               const up = prev > 0 && cost * fx > prev * 1.02
@@ -734,6 +741,13 @@ function ItemsGrid({
                       style={{ borderColor: 'var(--border)' }}>
                     {sum > 0 ? money(sum, false) : '—'}
                   </td>
+                  {showVat && (
+                    <td className="tnum border-b border-r px-2 py-[3px] text-right"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}
+                        title="Summa ichidagi QQS">
+                      {lineVat > 0 ? money(lineVat, false) : '—'}
+                    </td>
+                  )}
                   <td className="tnum border-b border-r px-2 py-[3px] text-right"
                       style={{ borderColor: 'var(--border)',
                                color: up ? 'var(--warn)' : 'var(--text-3)' }}
