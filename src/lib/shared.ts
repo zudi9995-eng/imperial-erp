@@ -16,8 +16,21 @@ import { useCallback, useEffect, useState } from 'react'
  * ko'rsatadi), shuning uchun chiqishda `clearShared()` chaqiriladi.
  */
 
+/**
+ * Kesh qancha vaqt yangi hisoblanadi.
+ *
+ * Muddatsiz kesh bir marta chatoq bo'lsa, abadiy chatoq qoladi: bir
+ * menejer ilovani ruxsat tuzatilishidan oldin ochgan edi va bo'sh
+ * mijozlar ro'yxati brauzerida qotib qoldi — sahifani yangilamaguncha
+ * shunday turardi. Endi eskirgan kesh keyingi ochilishda o'zi
+ * yangilanadi.
+ */
+const TTL = 5 * 60_000
+
 interface Entry {
   data: unknown
+  /** Oxirgi marta qachon yuklangan */
+  at: number
   /** Hozir ketayotgan so'rov — ikkinchi chaqiruv shunga ulanadi */
   inflight: Promise<unknown> | null
   subs: Set<() => void>
@@ -27,11 +40,14 @@ const store = new Map<string, Entry>()
 
 function entry(key: string): Entry {
   let e = store.get(key)
-  if (!e) { e = { data: null, inflight: null, subs: new Set() }; store.set(key, e) }
+  if (!e) { e = { data: null, at: 0, inflight: null, subs: new Set() }; store.set(key, e) }
   return e
 }
 
 function notify(e: Entry) { for (const fn of e.subs) fn() }
+
+/** Ma'lumot bor, lekin eskirgan */
+function stale(e: Entry) { return e.data !== null && Date.now() - e.at > TTL }
 
 function load<T>(key: string, loader: () => Promise<T>, force: boolean): Promise<T> {
   const e = entry(key)
@@ -40,6 +56,7 @@ function load<T>(key: string, loader: () => Promise<T>, force: boolean): Promise
 
   const p = loader().then((data) => {
     e.data = data
+    e.at = Date.now()
     e.inflight = null
     notify(e)
     return data
@@ -68,7 +85,11 @@ export function useShared<T>(
     const cb = () => bump((x) => x + 1)
     const self = entry(key)
     self.subs.add(cb)
-    if (self.data === null && !self.inflight) void load(key, loader, false)
+    // Eskirgan bo'lsa jimgina yangilanadi: ekranda hozirgi ma'lumot
+    // turib turadi, so'rov qaytgach o'zi almashadi.
+    if (!self.inflight && (self.data === null || stale(self))) {
+      void load(key, loader, self.data !== null).catch(() => {})
+    }
     return () => { self.subs.delete(cb) }
     // loader har renderda yangi funksiya bo'ladi — kalit yetarli
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +112,7 @@ export function useShared<T>(
 export function clearShared() {
   for (const e of store.values()) {
     e.data = null
+    e.at = 0
     e.inflight = null
     notify(e)
   }
@@ -101,6 +123,7 @@ export function invalidateShared(key: string) {
   const e = store.get(key)
   if (!e) return
   e.data = null
+  e.at = 0
   e.inflight = null
   notify(e)
 }
