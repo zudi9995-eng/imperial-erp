@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft, Truck, Undo2, Printer, MapPin, Banknote, Package, CheckCircle2, FileDown,
+  Pencil,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import { useWindows } from '../lib/windows'
 import { useRefs, translateDbError } from '../lib/useRefs'
 import type { SaleBoardRow, SaleItemRow } from '../lib/types'
 import {
@@ -24,7 +26,8 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
   const [items, setItems] = useState<SaleItemRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [modal, setModal] = useState<'ship' | 'return' | 'delivery' | 'pay' | null>(null)
+  const [modal, setModal] = useState<'ship' | 'return' | 'delivery' | 'pay' | 'edit' | null>(null)
+  const { open } = useWindows()
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -85,6 +88,12 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
 
   const canReturn = s.status === 'posted' && s.qty_shipped > 0 && can('sales.cancel')
 
+  // Tahrirlash uchun hujjat avval qoralamaga tushadi — to'lov yoki
+  // qaytarish bog'langan bo'lsa buni qilib bo'lmaydi.
+  const canEdit = s.status === 'posted' && s.source !== 'opening'
+    && Number(s.paid_base) === 0 && Number(s.returned_base) === 0
+    && can('sales.cancel')
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -123,6 +132,11 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
           {canShip && (
             <Button size="sm" variant="primary" onClick={() => setModal('ship')}>
               <Truck size={14} />Yukni chiqarish
+            </Button>
+          )}
+          {canEdit && (
+            <Button size="sm" onClick={() => setModal('edit')}>
+              <Pencil size={14} />Tahrirlash
             </Button>
           )}
           {canReturn && (
@@ -274,7 +288,72 @@ export default function SaleDetail({ id, onBack }: { id: number; onBack: () => v
         <DeliveryModal sale={s}
           onClose={() => setModal(null)} onDone={() => { setModal(null); void load() }} />
       )}
+      {modal === 'edit' && (
+        <EditModal
+          sale={s}
+          onClose={() => setModal(null)}
+          onDone={() => {
+            setModal(null)
+            open({
+              kind: 'sale-edit',
+              key: `sale-edit:${doc.id}`,
+              title: doc.doc_no ?? `Sotuv ${doc.id}`,
+              subtitle: doc.customer_name ?? undefined,
+              params: { saleId: doc.id },
+            })
+            onBack()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/* ---------------------------------------------------------------- */
+
+/**
+ * O'tkazishni bekor qilib tahrirlashga o'tish.
+ *
+ * 1C dagidek: hujjat o'chmaydi va raqami saqlanadi, faqat ombordagi
+ * ta'siri qaytariladi. Tuzatib qayta o'tkazilganda marja va kredit
+ * limiti qoidalari boshidan tekshiriladi.
+ */
+function EditModal({
+  sale, onClose, onDone,
+}: { sale: SaleBoardRow; onClose: () => void; onDone: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function go() {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('ip_unpost_sale', { p_sale_id: sale.id })
+    setBusy(false)
+    if (error) { setErr(translateDbError(error.message)); return }
+    onDone()
+  }
+
+  return (
+    <Modal
+      open onClose={onClose} width={520} title="Sotuvni tahrirlash"
+      footer={<><Button onClick={onClose}>Bekor</Button>
+        <Button variant="primary" loading={busy} onClick={go}>
+          <Pencil size={14} />Tahrirlashga o'tish
+        </Button></>}
+    >
+      <div className="space-y-3">
+        <InfoBox tone="warn">
+          <b>{sale.doc_no ?? `#${sale.id}`}</b> qoralamaga qaytariladi: ombordan
+          yechilgan <b>{num(sale.qty_shipped, 2)}</b> birlik tovar partiyalarga
+          qaytadi. Hujjat o'chmaydi, raqami ham o'zgarmaydi.
+        </InfoBox>
+        <InfoBox>
+          Tuzatgandan keyin uni <b>qayta o'tkazasiz</b>. O'tkazishda marja,
+          kredit limiti va tasdiq qoidalari qaytadan tekshiriladi — ya'ni
+          narxni tushirsangiz, tasdiqqa tushib qolishi mumkin.
+        </InfoBox>
+        {err && <ErrorBox>{err}</ErrorBox>}
+      </div>
+    </Modal>
   )
 }
 
